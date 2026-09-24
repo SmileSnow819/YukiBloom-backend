@@ -23,7 +23,7 @@ func TestAuthRoutesRequireLogin(t *testing.T) {
 	if err := database.Migrate(t.Context(), pool); err != nil {
 		t.Fatal(err)
 	}
-	router := NewRouter(auth.NewHandler(auth.NewStore(pool), true), nil, nil, nil, nil)
+	router := NewRouter(auth.NewHandler(auth.NewStore(pool), true), nil, nil, nil, nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/session", nil)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)

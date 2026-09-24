@@ -9,10 +9,11 @@ import (
 	"github.com/SmileSnow819/YukiBloom-backend/internal/media"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/personal"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/posts"
+	"github.com/SmileSnow819/YukiBloom-backend/internal/sitecontent"
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandler *media.Handler, importerHandler *importer.Handler, personalHandler *personal.Handler) *gin.Engine {
+func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandler *media.Handler, importerHandler *importer.Handler, personalHandler *personal.Handler, siteHandler *sitecontent.Handler) *gin.Engine {
 	router := gin.New()
 	router.HandleMethodNotAllowed = true
 	router.Use(func(c *gin.Context) {
@@ -57,6 +58,17 @@ func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandl
 			admin.GET("/timeline", personalHandler.GetTimeline)
 			admin.PUT("/timeline", personalHandler.ReplaceTimeline)
 		}
+		if siteHandler != nil {
+			admin.GET("/site-content", siteHandler.AdminContent)
+			admin.PUT("/site-content", siteHandler.ReplaceContent)
+			admin.GET("/pages", siteHandler.AdminPages)
+			admin.POST("/pages", siteHandler.SavePage)
+			admin.GET("/pages/:id", siteHandler.AdminPageByID)
+			admin.PATCH("/pages/:id", siteHandler.SavePage)
+			admin.DELETE("/pages/:id", siteHandler.DeletePage)
+			admin.POST("/pages/:id/publish", siteHandler.PublishPage)
+			admin.POST("/pages/:id/unpublish", siteHandler.UnpublishPage)
+		}
 	}
 	if postHandler != nil {
 		router.GET("/api/v1/posts", postHandler.PublicList)
@@ -68,6 +80,10 @@ func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandl
 	if personalHandler != nil {
 		router.GET("/api/v1/footprints", personalHandler.GetFootprints)
 		router.GET("/api/v1/timeline", personalHandler.GetTimeline)
+	}
+	if siteHandler != nil {
+		router.GET("/api/v1/site-content", siteHandler.PublicContent)
+		router.GET("/api/v1/pages/:slug", siteHandler.PublicPage)
 	}
 	router.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "接口不存在"})
