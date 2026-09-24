@@ -54,6 +54,39 @@ docker compose exec \
 
 旧站点资料迁移使用 `go run ./cmd/import-site`，默认只读检查 `config/site.yaml`、`config/i18n-content.yaml`、“关于我”和歌单页面。预检查通过后添加 `-apply` 才会写入数据库；已有站点内容时还需显式添加 `-replace`。导入工具会把头像与精选入口图片复制到后端图片目录。Docker 镜像也包含 `/import-posts`、`/import-personal`、`/import-site`，可挂载旧前端仓库后在容器内运行。
 
+## 本地接口验证
+
+请使用独立的测试数据库和图片目录，不要把测试数据写入正式数据库。准备测试数据库后，在一个终端创建临时管理员并启动服务：
+
+```bash
+createdb yukibloom_test
+export DATABASE_URL='postgres://user:password@127.0.0.1:5432/yukibloom_test?sslmode=disable'
+ADMIN_USERNAME='api-test' ADMIN_PASSWORD='请换成至少 12 位的临时密码' go run ./cmd/create-admin
+COOKIE_SECURE=false UPLOAD_DIR=/tmp/yukibloom-api-test-uploads go run ./cmd/server
+```
+
+在另一个终端检查服务和管理员登录：
+
+```bash
+curl -i http://127.0.0.1:8080/api/v1/health
+curl -i -c /tmp/yukibloom-api-test-cookies.txt \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"api-test","password":"你的临时密码"}' \
+  http://127.0.0.1:8080/api/v1/admin/login
+```
+
+登录成功会返回 `csrfToken` 并写入 Cookie。后台的新增、修改、发布、撤回、上传和删除请求需要携带 Cookie，并在请求头中传入 `X-CSRF-Token: 登录响应中的 csrfToken`。例如：
+
+```bash
+curl -i -b /tmp/yukibloom-api-test-cookies.txt \
+  -H 'X-CSRF-Token: 登录响应中的 csrfToken' \
+  http://127.0.0.1:8080/api/v1/admin/posts
+```
+
+**2026-09-24 本地接口检查：44 项全部通过。**检查使用临时 PostgreSQL 数据库与本机服务，覆盖了健康检查和公开读取、登录保护、文章草稿/编辑/发布/撤回/搜索、图片上传/读取/引用保护、Markdown 预览与导入、足迹和实习经历保存、站点内容版本冲突，以及独立页面的创建/编辑/发布/撤回/删除。检查后已删除临时数据库和图片文件。
+
+其中几项关键预期结果：草稿文章和未发布页面公开读取返回 `404`；发布后公开读取返回 `200`；撤回后再次返回 `404`；图片仍被文章引用时删除返回 `409`；使用过期的站点内容版本保存返回 `409`；未登录访问后台返回 `401`。
+
 ## 测试
 
 ```bash
