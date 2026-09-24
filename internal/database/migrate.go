@@ -34,20 +34,20 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		applied_at timestamptz NOT NULL DEFAULT now()
 	)`)
 	if err != nil {
-		return fmt.Errorf("create migration table: %w", err)
+		return fmt.Errorf("创建数据库迁移记录表失败：%w", err)
 	}
 
 	names, err := migrationNames()
 	if err != nil {
-		return fmt.Errorf("list migrations: %w", err)
+		return fmt.Errorf("列出数据库迁移文件失败：%w", err)
 	}
 	for _, name := range names {
 		contents, err := migrationFS.ReadFile("migrations/" + name)
 		if err != nil {
-			return fmt.Errorf("read migration %s: %w", name, err)
+			return fmt.Errorf("读取数据库迁移文件 %s 失败：%w", name, err)
 		}
 		if err := runMigration(ctx, pool, name, string(contents)); err != nil {
-			return fmt.Errorf("apply migration %s: %w", name, err)
+			return fmt.Errorf("执行数据库迁移 %s 失败：%w", name, err)
 		}
 	}
 	return nil

@@ -19,6 +19,7 @@ services:
     environment:
       GIN_MODE: release
       PORT: "8080"
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
       DATABASE_URL: postgres://${POSTGRES_USER:-yukibloom}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-yukibloom}?sslmode=disable
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"

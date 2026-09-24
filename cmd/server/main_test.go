@@ -20,7 +20,7 @@ func TestRunReportsDatabaseConnectionFailure(t *testing.T) {
 		}
 		return ""
 	})
-	if err == nil || !strings.Contains(err.Error(), "database") {
+	if err == nil || !strings.Contains(err.Error(), "数据库") {
 		t.Fatalf("expected database connection error, got %v", err)
 	}
 	if strings.Contains(err.Error(), "pass") {
