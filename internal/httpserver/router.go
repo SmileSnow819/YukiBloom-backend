@@ -5,11 +5,12 @@ import (
 	"net/http"
 
 	"github.com/SmileSnow819/YukiBloom-backend/internal/auth"
+	"github.com/SmileSnow819/YukiBloom-backend/internal/media"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/posts"
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler) *gin.Engine {
+func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandler *media.Handler) *gin.Engine {
 	router := gin.New()
 	router.HandleMethodNotAllowed = true
 	router.Use(func(c *gin.Context) {
@@ -39,10 +40,18 @@ func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler) *gin.Engin
 			admin.POST("/posts/:id/publish", postHandler.Publish)
 			admin.POST("/posts/:id/unpublish", postHandler.Unpublish)
 		}
+		if mediaHandler != nil {
+			admin.GET("/media", mediaHandler.List)
+			admin.POST("/media", mediaHandler.Upload)
+			admin.DELETE("/media/:id", mediaHandler.Delete)
+		}
 	}
 	if postHandler != nil {
 		router.GET("/api/v1/posts", postHandler.PublicList)
 		router.GET("/api/v1/posts/:slug", postHandler.PublicBySlug)
+	}
+	if mediaHandler != nil {
+		router.GET("/uploads/:key", mediaHandler.PublicFile)
 	}
 	router.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "接口不存在"})

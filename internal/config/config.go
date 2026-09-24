@@ -11,12 +11,17 @@ type Config struct {
 	Port         string
 	DatabaseURL  string
 	CookieSecure bool
+	UploadDir    string
 }
 
 func Load(getenv func(string) string) (Config, error) {
 	databaseURL := strings.TrimSpace(getenv("DATABASE_URL"))
 	if databaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL 不能为空")
+	}
+	uploadDir := strings.TrimSpace(getenv("UPLOAD_DIR"))
+	if uploadDir == "" {
+		uploadDir = "./var/uploads"
 	}
 
 	port := strings.TrimSpace(getenv("PORT"))
@@ -36,5 +41,5 @@ func Load(getenv func(string) string) (Config, error) {
 		}
 	}
 
-	return Config{Port: port, DatabaseURL: databaseURL, CookieSecure: cookieSecure}, nil
+	return Config{Port: port, DatabaseURL: databaseURL, CookieSecure: cookieSecure, UploadDir: uploadDir}, nil
 }
