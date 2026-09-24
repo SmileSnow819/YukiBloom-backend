@@ -7,11 +7,12 @@ import (
 	"github.com/SmileSnow819/YukiBloom-backend/internal/auth"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/importer"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/media"
+	"github.com/SmileSnow819/YukiBloom-backend/internal/personal"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/posts"
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandler *media.Handler, importerHandler *importer.Handler) *gin.Engine {
+func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandler *media.Handler, importerHandler *importer.Handler, personalHandler *personal.Handler) *gin.Engine {
 	router := gin.New()
 	router.HandleMethodNotAllowed = true
 	router.Use(func(c *gin.Context) {
@@ -50,6 +51,12 @@ func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandl
 			admin.POST("/media", mediaHandler.Upload)
 			admin.DELETE("/media/:id", mediaHandler.Delete)
 		}
+		if personalHandler != nil {
+			admin.GET("/footprints", personalHandler.GetFootprints)
+			admin.PUT("/footprints", personalHandler.ReplaceFootprints)
+			admin.GET("/timeline", personalHandler.GetTimeline)
+			admin.PUT("/timeline", personalHandler.ReplaceTimeline)
+		}
 	}
 	if postHandler != nil {
 		router.GET("/api/v1/posts", postHandler.PublicList)
@@ -57,6 +64,10 @@ func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandl
 	}
 	if mediaHandler != nil {
 		router.GET("/uploads/:key", mediaHandler.PublicFile)
+	}
+	if personalHandler != nil {
+		router.GET("/api/v1/footprints", personalHandler.GetFootprints)
+		router.GET("/api/v1/timeline", personalHandler.GetTimeline)
 	}
 	router.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "接口不存在"})

@@ -17,6 +17,7 @@ import (
 	"github.com/SmileSnow819/YukiBloom-backend/internal/httpserver"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/importer"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/media"
+	"github.com/SmileSnow819/YukiBloom-backend/internal/personal"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/posts"
 	"github.com/gin-gonic/gin"
 )
@@ -55,6 +56,7 @@ func run(ctx context.Context, getenv func(string) string) error {
 			posts.NewHandler(posts.NewStore(pool)),
 			media.NewHandler(media.NewStore(pool, cfg.UploadDir)),
 			importer.NewHandler(posts.NewStore(pool)),
+			personal.NewHandler(personal.NewStore(pool)),
 		),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

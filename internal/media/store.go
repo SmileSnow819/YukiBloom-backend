@@ -190,7 +190,9 @@ func (s *Store) DeleteUnused(ctx context.Context, id string) error {
 		return err
 	}
 	var used bool
-	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM posts WHERE cover_media_id=$1 OR position($2 in body_markdown)>0)`, id, key).Scan(&used)
+	err = tx.QueryRow(ctx, `SELECT
+		EXISTS(SELECT 1 FROM posts WHERE cover_media_id=$1 OR position($2 in body_markdown)>0)
+		OR EXISTS(SELECT 1 FROM footprint_routes r, unnest(r.images) AS image_url WHERE position($2 in image_url)>0)`, id, key).Scan(&used)
 	if err != nil {
 		return err
 	}

@@ -46,6 +46,10 @@ docker compose exec \
 
 后台 Markdown 导入支持 `POST /api/v1/admin/posts/markdown/preview` 预览，以及 `POST /api/v1/admin/posts/markdown` 保存为草稿；两者使用 multipart 字段 `file`，可选字段 `locale` 默认 `zh-CN`，文件上限为 2 MiB。旧文章迁移工具默认为只读预检查；检查通过后，使用 `DATABASE_URL=... go run ./cmd/import-posts -apply` 执行导入。重复运行会跳过已有文章，不覆盖后台编辑内容。
 
+个人内容接口提供 `GET /api/v1/footprints` 和 `GET /api/v1/timeline`。管理员通过对应的 `PUT /api/v1/admin/footprints`、`PUT /api/v1/admin/timeline` 整体保存地点、停留、路线与实习经历；保存按单次数据库事务处理，失败时会回滚。
+
+迁移旧足迹与实习经历时，`go run ./cmd/import-personal` 默认只检查 YAML 和图片。检查通过后添加 `-apply` 写入；若数据库已有足迹或实习经历，需明确加 `-replace` 才会替换现有数据。迁移会把路线图片复制到后端图片目录并更新图片地址。
+
 ## 测试
 
 ```bash
