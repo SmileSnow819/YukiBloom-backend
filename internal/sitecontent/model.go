@@ -142,6 +142,7 @@ type Page struct {
 }
 
 type Content struct {
+	Version            int64              `json:"version"`
 	Profile            *Profile           `json:"profile"`
 	SocialLinks        []SocialLink       `json:"socialLinks"`
 	CategoryMappings   []CategoryMapping  `json:"categoryMappings"`

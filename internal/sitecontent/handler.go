@@ -108,6 +108,10 @@ func (h *Handler) ReplaceContent(c *gin.Context) {
 		return
 	}
 	if err := h.store.Replace(c.Request.Context(), content); err != nil {
+		if errors.Is(err, ErrConflict) {
+			c.JSON(http.StatusConflict, gin.H{"error": "站点内容已被其他操作修改，请刷新后重试"})
+			return
+		}
 		var databaseError *pgconn.PgError
 		if errors.As(err, &databaseError) && databaseError.Code == "23505" {
 			c.JSON(http.StatusConflict, gin.H{"error": "站点内容存在重复的标识或链接"})

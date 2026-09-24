@@ -15,6 +15,10 @@ import (
 
 func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandler *media.Handler, importerHandler *importer.Handler, personalHandler *personal.Handler, siteHandler *sitecontent.Handler) *gin.Engine {
 	router := gin.New()
+	// 不信任客户端提交的代理请求头，避免伪造 IP 绕过登录限流。
+	if err := router.SetTrustedProxies(nil); err != nil {
+		panic("配置受信任代理失败：" + err.Error())
+	}
 	router.HandleMethodNotAllowed = true
 	router.Use(func(c *gin.Context) {
 		defer func() {

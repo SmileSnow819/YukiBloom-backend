@@ -22,6 +22,9 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
 func (s *Store) Get(ctx context.Context) (Content, error) {
 	content := emptyContent()
+	if err := s.pool.QueryRow(ctx, `SELECT version FROM site_content_revision WHERE singleton=true`).Scan(&content.Version); err != nil {
+		return Content{}, err
+	}
 	var profile Profile
 	err := s.pool.QueryRow(ctx, `SELECT title,alternate,subtitle,name,description,avatar_url,show_logo,author,site_url,default_og_image,start_year,timezone,keywords FROM site_profile WHERE singleton=true`).Scan(
 		&profile.Title, &profile.Alternate, &profile.Subtitle, &profile.Name, &profile.Description, &profile.Avatar, &profile.ShowLogo, &profile.Author, &profile.URL, &profile.DefaultOGImage, &profile.StartYear, &profile.Timezone, &profile.Keywords)
@@ -179,11 +182,6 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 			rows.Close()
 			return Content{}, err
 		}
-		group.Links, err = s.readMusicLinks(ctx, group.ID)
-		if err != nil {
-			rows.Close()
-			return Content{}, err
-		}
 		content.MusicGroups = append(content.MusicGroups, group)
 	}
 	if err := rows.Err(); err != nil {
@@ -191,6 +189,12 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 		return Content{}, err
 	}
 	rows.Close()
+	for index := range content.MusicGroups {
+		content.MusicGroups[index].Links, err = s.readMusicLinks(ctx, content.MusicGroups[index].ID)
+		if err != nil {
+			return Content{}, err
+		}
+	}
 	rows, err = s.pool.Query(ctx, `SELECT id,title,url,enabled FROM background_music_tracks ORDER BY sort_order,id`)
 	if err != nil {
 		return Content{}, err
@@ -287,6 +291,20 @@ func (s *Store) Replace(ctx context.Context, content Content) error {
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(20260925)"); err != nil {
 		return err
 	}
+	if err := replaceWithinTx(ctx, tx, content); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func replaceWithinTx(ctx context.Context, tx pgx.Tx, content Content) error {
+	result, err := tx.Exec(ctx, `UPDATE site_content_revision SET version=version+1 WHERE singleton=true AND version=$1`, content.Version)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() != 1 {
+		return ErrConflict
+	}
 	for _, table := range []string{"music_links", "music_groups", "background_music_tracks", "content_translations", "friend_links", "friend_settings", "site_announcements", "site_navigation", "featured_series", "featured_categories", "category_mappings", "social_links", "site_profile"} {
 		if _, err := tx.Exec(ctx, "DELETE FROM "+table); err != nil {
 			return err
@@ -367,6 +385,32 @@ func (s *Store) Replace(ctx context.Context, content Content) error {
 	}
 	for index, item := range content.BackgroundMusic {
 		if _, err := tx.Exec(ctx, `INSERT INTO background_music_tracks (id,title,url,sort_order,enabled) VALUES (CASE WHEN $1='' THEN gen_random_uuid() ELSE $1::uuid END,$2,$3,$4,$5)`, item.ID, item.Title, item.URL, index, item.Enabled); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Import saves the site content and standalone pages as one database change.
+func (s *Store) Import(ctx context.Context, content Content, pages []Page) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(20260925)"); err != nil {
+		return err
+	}
+	if err := replaceWithinTx(ctx, tx, content); err != nil {
+		return err
+	}
+	for _, page := range pages {
+		_, err := tx.Exec(ctx, `INSERT INTO content_pages (locale,slug,title,description,body_markdown,status,published_at)
+			VALUES ($1,$2,$3,$4,$5,'published',now())
+			ON CONFLICT (locale,slug) DO UPDATE SET title=EXCLUDED.title,description=EXCLUDED.description,
+			body_markdown=EXCLUDED.body_markdown,status='published',published_at=COALESCE(content_pages.published_at,now()),
+			version=content_pages.version+1,updated_at=now()`, page.Locale, page.Slug, page.Title, page.Description, page.BodyMarkdown)
+		if err != nil {
 			return err
 		}
 	}

@@ -16,7 +16,6 @@ import (
 	"github.com/SmileSnow819/YukiBloom-backend/internal/database"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/media"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/sitecontent"
-	"github.com/jackc/pgx/v5"
 )
 
 type options struct {
@@ -103,12 +102,18 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 		return fmt.Errorf("数据库迁移失败：%w", err)
 	}
 	var existing bool
-	if err := pool.QueryRow(startupCtx, `SELECT EXISTS(SELECT 1 FROM site_profile) OR EXISTS(SELECT 1 FROM content_pages WHERE slug IN ('about','music'))`).Scan(&existing); err != nil {
+	if err := pool.QueryRow(startupCtx, `SELECT version > 0 OR EXISTS(SELECT 1 FROM content_pages WHERE slug IN ('about','music')) FROM site_content_revision WHERE singleton=true`).Scan(&existing); err != nil {
 		return fmt.Errorf("检查现有站点内容失败：%w", err)
 	}
 	if existing && !settings.replace {
 		return errors.New("数据库已有站点资料或独立页面。为避免覆盖后台修改，确认替换后再添加 -replace")
 	}
+	store := sitecontent.NewStore(pool)
+	current, err := store.Get(startupCtx)
+	if err != nil {
+		return fmt.Errorf("读取站点内容版本失败：%w", err)
+	}
+	content.Version = current.Version
 	mediaStore := media.NewStore(pool, cfg.UploadDir)
 	imageURLs := make(map[string]string)
 	newMedia := make([]string, 0)
@@ -137,31 +142,9 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 		}
 		*pointer = url
 	}
-	store := sitecontent.NewStore(pool)
-	if err := store.Replace(startupCtx, content); err != nil {
+	if err := store.Import(startupCtx, content, pages); err != nil {
 		cleanupMedia(startupCtx, mediaStore, newMedia)
-		return fmt.Errorf("保存站点内容失败：%w", err)
-	}
-	for _, page := range pages {
-		var id string
-		var version int64
-		err := pool.QueryRow(startupCtx, `SELECT id,version FROM content_pages WHERE locale=$1 AND slug=$2`, page.Locale, page.Slug).Scan(&id, &version)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("查询页面 %s 失败：%w", page.Slug, err)
-		}
-		if id != "" {
-			page.ID = id
-			page.Version = version
-		}
-		saved, err := store.SavePage(startupCtx, page, true)
-		if err != nil {
-			return fmt.Errorf("导入页面 %s 失败：%w", page.Slug, err)
-		}
-		if saved.Status != "published" {
-			if _, err := store.SetPagePublished(startupCtx, saved.ID, true); err != nil {
-				return fmt.Errorf("发布页面 %s 失败：%w", page.Slug, err)
-			}
-		}
+		return fmt.Errorf("保存站点内容和独立页面失败：%w", err)
 	}
 	_, err = fmt.Fprintln(output, "站点资料、内容翻译、音乐列表和独立页面已导入数据库。")
 	return err

@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/SmileSnow819/YukiBloom-backend/internal/posts"
 	"github.com/gin-gonic/gin"
@@ -21,13 +22,21 @@ func (h *Handler) Preview(c *gin.Context) {
 	if !ok {
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"post": post.Input, "status": "draft"})
+	c.JSON(http.StatusOK, gin.H{"post": post.Input, "status": "draft", "coverPath": post.CoverPath})
 }
 
 func (h *Handler) CreateDraft(c *gin.Context) {
 	post, ok := h.parseUpload(c)
 	if !ok {
 		return
+	}
+	coverMediaID := strings.TrimSpace(c.PostForm("coverMediaId"))
+	if post.CoverPath != "" && coverMediaID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "文章包含封面，请先上传封面图片，并通过 coverMediaId 字段关联"})
+		return
+	}
+	if coverMediaID != "" {
+		post.Input.CoverMediaID = &coverMediaID
 	}
 	if err := posts.ValidateInput(post.Input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -36,6 +45,10 @@ func (h *Handler) CreateDraft(c *gin.Context) {
 	created, err := h.store.Create(c.Request.Context(), post.Input)
 	if errors.Is(err, posts.ErrConflict) {
 		c.JSON(http.StatusConflict, gin.H{"error": posts.ErrConflict.Error()})
+		return
+	}
+	if errors.Is(err, posts.ErrMediaNotFound) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "选择的封面图片不存在"})
 		return
 	}
 	if err != nil {

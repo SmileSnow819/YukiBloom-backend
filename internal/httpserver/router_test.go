@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 )
 
 func TestHealthReturnsOK(t *testing.T) {
@@ -28,5 +30,20 @@ func TestUnknownRouteReturnsNotFound(t *testing.T) {
 	NewRouter(nil, nil, nil, nil, nil, nil).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/missing", nil))
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", response.Code)
+	}
+}
+
+func TestClientIPIgnoresUntrustedForwardedHeader(t *testing.T) {
+	router := NewRouter(nil, nil, nil, nil, nil, nil)
+	router.GET("/client-ip", func(c *gin.Context) {
+		c.String(http.StatusOK, c.ClientIP())
+	})
+	request := httptest.NewRequest(http.MethodGet, "/client-ip", nil)
+	request.RemoteAddr = "192.0.2.10:4321"
+	request.Header.Set("X-Forwarded-For", "198.51.100.123")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || response.Body.String() != "192.0.2.10" {
+		t.Fatalf("客户端地址不能由转发请求头伪造：状态 %d，地址 %q", response.Code, response.Body.String())
 	}
 }

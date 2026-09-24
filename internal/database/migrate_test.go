@@ -15,7 +15,7 @@ func TestMigrationNamesAreSorted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(names, []string{"0001_initial.sql", "0002_content.sql", "0003_personal_content.sql", "0004_site_content.sql"}) {
+	if !reflect.DeepEqual(names, []string{"0001_initial.sql", "0002_content.sql", "0003_personal_content.sql", "0004_site_content.sql", "0005_site_content_revision.sql"}) {
 		t.Fatalf("数据库迁移文件顺序不正确：%v", names)
 	}
 }
