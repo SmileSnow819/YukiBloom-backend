@@ -44,6 +44,8 @@ docker compose exec \
 
 后台图片库支持 `GET/POST /api/v1/admin/media` 和 `DELETE /api/v1/admin/media/{id}`。只接受通过真实格式校验的 JPEG、PNG 和 WebP 图片，单张不超过 10 MiB，图片地址为 `/uploads/{生成的文件名}`。仍被文章正文或封面引用的图片不能删除。
 
+后台 Markdown 导入支持 `POST /api/v1/admin/posts/markdown/preview` 预览，以及 `POST /api/v1/admin/posts/markdown` 保存为草稿；两者使用 multipart 字段 `file`，可选字段 `locale` 默认 `zh-CN`，文件上限为 2 MiB。旧文章迁移工具默认为只读预检查；检查通过后，使用 `DATABASE_URL=... go run ./cmd/import-posts -apply` 执行导入。重复运行会跳过已有文章，不覆盖后台编辑内容。
+
 ## 测试
 
 ```bash

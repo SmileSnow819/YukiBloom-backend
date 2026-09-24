@@ -58,25 +58,14 @@ func (s *Store) Save(ctx context.Context, source io.Reader) (Item, error) {
 	if len(data) > MaxUploadBytes {
 		return Item{}, ErrTooLarge
 	}
-	config, format, err := image.DecodeConfig(bytes.NewReader(data))
+	info, err := Validate(data)
 	if err != nil {
-		return Item{}, ErrInvalidImage
-	}
-	if config.Width < 1 || config.Height < 1 || int64(config.Width)*int64(config.Height) > maxImagePixels {
-		return Item{}, ErrDimensions
-	}
-	_, decodedFormat, err := image.Decode(bytes.NewReader(data))
-	if err != nil || decodedFormat != format {
-		return Item{}, ErrInvalidImage
-	}
-	mimeType, extension, ok := imageType(format)
-	if !ok {
-		return Item{}, ErrInvalidImage
+		return Item{}, err
 	}
 	if err := os.MkdirAll(s.root, 0o750); err != nil {
 		return Item{}, fmt.Errorf("创建图片目录失败：%w", err)
 	}
-	key, err := storageKey(extension)
+	key, err := storageKey(info.Extension)
 	if err != nil {
 		return Item{}, fmt.Errorf("生成图片文件名失败：%w", err)
 	}
@@ -108,13 +97,42 @@ func (s *Store) Save(ctx context.Context, source io.Reader) (Item, error) {
 	var item Item
 	err = s.pool.QueryRow(ctx, `INSERT INTO media (storage_key, mime_type, size_bytes, width, height)
 		VALUES ($1,$2,$3,$4,$5) RETURNING id, storage_key, mime_type, size_bytes, width, height, created_at`,
-		key, mimeType, len(data), config.Width, config.Height).Scan(&item.ID, &key, &item.MIMEType, &item.SizeBytes, &item.Width, &item.Height, &item.CreatedAt)
+		key, info.MIMEType, len(data), info.Width, info.Height).Scan(&item.ID, &key, &item.MIMEType, &item.SizeBytes, &item.Width, &item.Height, &item.CreatedAt)
 	if err != nil {
 		_ = os.Remove(path)
 		return Item{}, fmt.Errorf("保存图片信息失败：%w", err)
 	}
 	item.URL = "/uploads/" + key
 	return item, nil
+}
+
+type ImageInfo struct {
+	MIMEType  string
+	Extension string
+	Width     int
+	Height    int
+}
+
+func Validate(data []byte) (ImageInfo, error) {
+	if len(data) > MaxUploadBytes {
+		return ImageInfo{}, ErrTooLarge
+	}
+	config, format, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return ImageInfo{}, ErrInvalidImage
+	}
+	if config.Width < 1 || config.Height < 1 || int64(config.Width)*int64(config.Height) > maxImagePixels {
+		return ImageInfo{}, ErrDimensions
+	}
+	_, decodedFormat, err := image.Decode(bytes.NewReader(data))
+	if err != nil || decodedFormat != format {
+		return ImageInfo{}, ErrInvalidImage
+	}
+	mimeType, extension, ok := imageType(format)
+	if !ok {
+		return ImageInfo{}, ErrInvalidImage
+	}
+	return ImageInfo{MIMEType: mimeType, Extension: extension, Width: config.Width, Height: config.Height}, nil
 }
 
 func (s *Store) List(ctx context.Context, page, limit int) ([]Item, int64, error) {

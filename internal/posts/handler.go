@@ -102,7 +102,7 @@ func (h *Handler) Create(c *gin.Context) {
 	if !bindPost(c, &input, false) {
 		return
 	}
-	if err := validateInput(input); err != nil {
+	if err := ValidateInput(input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -131,7 +131,7 @@ func (h *Handler) Update(c *gin.Context) {
 	if !bindPost(c, &input, true) {
 		return
 	}
-	if err := validateInput(input); err != nil {
+	if err := ValidateInput(input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -194,7 +194,7 @@ func bindPost(c *gin.Context, input *PostInput, update bool) bool {
 	return true
 }
 
-func validateInput(input PostInput) error {
+func ValidateInput(input PostInput) error {
 	if !validLocale.MatchString(input.Locale) {
 		return errors.New("locale 格式不正确")
 	}

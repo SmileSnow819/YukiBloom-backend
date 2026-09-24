@@ -5,12 +5,13 @@ import (
 	"net/http"
 
 	"github.com/SmileSnow819/YukiBloom-backend/internal/auth"
+	"github.com/SmileSnow819/YukiBloom-backend/internal/importer"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/media"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/posts"
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandler *media.Handler) *gin.Engine {
+func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandler *media.Handler, importerHandler *importer.Handler) *gin.Engine {
 	router := gin.New()
 	router.HandleMethodNotAllowed = true
 	router.Use(func(c *gin.Context) {
@@ -39,6 +40,10 @@ func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandl
 			admin.PATCH("/posts/:id", postHandler.Update)
 			admin.POST("/posts/:id/publish", postHandler.Publish)
 			admin.POST("/posts/:id/unpublish", postHandler.Unpublish)
+		}
+		if importerHandler != nil {
+			admin.POST("/posts/markdown/preview", importerHandler.Preview)
+			admin.POST("/posts/markdown", importerHandler.CreateDraft)
 		}
 		if mediaHandler != nil {
 			admin.GET("/media", mediaHandler.List)

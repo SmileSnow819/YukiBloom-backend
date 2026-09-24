@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -84,6 +85,12 @@ func (s *Store) AdminByID(ctx context.Context, id string) (Post, error) {
 	return post, mapReadError(err)
 }
 
+func (s *Store) Exists(ctx context.Context, locale, slug string) (bool, error) {
+	var exists bool
+	err := s.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM posts WHERE locale=$1 AND slug=$2)", locale, slug).Scan(&exists)
+	return exists, err
+}
+
 func (s *Store) Create(ctx context.Context, input PostInput) (Post, error) {
 	extra := input.Extra
 	if len(extra) == 0 {
@@ -115,6 +122,54 @@ func (s *Store) Create(ctx context.Context, input PostInput) (Post, error) {
 		return Post{}, err
 	}
 	return post, nil
+}
+
+// Import adds an existing Markdown article once and never overwrites a later edit.
+func (s *Store) Import(ctx context.Context, input PostInput, published bool) (Post, bool, error) {
+	status := "draft"
+	var publishedAt *time.Time
+	if published {
+		status = "published"
+		publishedAt = input.DisplayDate
+		if publishedAt == nil {
+			now := time.Now()
+			publishedAt = &now
+		}
+	}
+	extra := input.Extra
+	if len(extra) == 0 {
+		extra = json.RawMessage(`{}`)
+	}
+	if input.Categories == nil {
+		input.Categories = []string{}
+	}
+	if input.Tags == nil {
+		input.Tags = []string{}
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Post{}, false, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(20260925)"); err != nil {
+		return Post{}, false, err
+	}
+	post, err := scanPost(tx.QueryRow(ctx, `INSERT INTO posts
+		(locale, slug, title, description, body_markdown, status, display_date, published_at, categories, tags, extra, cover_media_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		ON CONFLICT (locale, slug) DO NOTHING RETURNING `+postColumns,
+		input.Locale, input.Slug, input.Title, input.Description, input.BodyMarkdown,
+		status, input.DisplayDate, publishedAt, input.Categories, input.Tags, []byte(extra), input.CoverMediaID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Post{}, false, nil
+	}
+	if err != nil {
+		return Post{}, false, mapWriteError(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Post{}, false, err
+	}
+	return post, true, nil
 }
 
 func (s *Store) Update(ctx context.Context, id string, input PostInput) (Post, error) {
