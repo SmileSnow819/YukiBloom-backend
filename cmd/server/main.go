@@ -15,6 +15,7 @@ import (
 	"github.com/SmileSnow819/YukiBloom-backend/internal/config"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/database"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/httpserver"
+	"github.com/SmileSnow819/YukiBloom-backend/internal/posts"
 	"github.com/gin-gonic/gin"
 )
 
@@ -46,8 +47,11 @@ func run(ctx context.Context, getenv func(string) string) error {
 	}
 
 	server := &http.Server{
-		Addr:              ":" + cfg.Port,
-		Handler:           httpserver.NewRouter(auth.NewHandler(auth.NewStore(pool), cfg.CookieSecure)),
+		Addr: ":" + cfg.Port,
+		Handler: httpserver.NewRouter(
+			auth.NewHandler(auth.NewStore(pool), cfg.CookieSecure),
+			posts.NewHandler(posts.NewStore(pool)),
+		),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

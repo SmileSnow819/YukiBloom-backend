@@ -1,6 +1,6 @@
 # YukiBloom 后端
 
-YukiBloom 的独立 Go 服务，使用 Go、Gin 和 PostgreSQL。当前已提供健康检查、数据库迁移、管理员登录与会话接口；下一步实现文章管理和图片上传。整体方案见[设计文档](docs/superpowers/specs/2026-09-24-go-content-backend-design.md)。
+YukiBloom 的独立 Go 服务，使用 Go、Gin 和 PostgreSQL。当前已提供健康检查、数据库迁移、管理员登录与会话接口，以及文章管理和公开查询接口。整体方案见[设计文档](docs/superpowers/specs/2026-09-24-go-content-backend-design.md)。
 
 ## 本地运行
 
@@ -14,7 +14,7 @@ docker compose up --build -d
 curl http://127.0.0.1:8080/api/v1/health
 ```
 
-健康接口正常时返回 `{"status":"ok"}`。API 只绑定主机的 `127.0.0.1`，数据库不映射主机端口。与 Astro 一起部署时，由统一的反向代理暴露网站入口。
+健康接口正常时返回 `{"status":"正常"}`。API 只绑定主机的 `127.0.0.1`，数据库不映射主机端口。与 Astro 一起部署时，由统一的反向代理暴露网站入口。
 
 已有 PostgreSQL 时，也可以直接运行：
 
@@ -37,6 +37,10 @@ docker compose exec \
 ```
 
 登录接口为 `POST /api/v1/admin/login`，请求 JSON 包含 `username` 和 `password`。成功后服务设置 `HttpOnly` 会话 Cookie，并返回后续写请求使用的 `csrfToken`。后台会话查询为 `GET /api/v1/admin/session`；退出为 `POST /api/v1/admin/logout`，写请求需在 `X-CSRF-Token` 请求头传入 CSRF 令牌。连续登录失败会触发限流。
+
+## 文章接口
+
+公开接口 `GET /api/v1/posts` 支持 `locale`、`category`、`tag`、`q`、`page` 和 `limit` 参数；单篇文章通过 `GET /api/v1/posts/{slug}?locale=zh-CN` 获取。公开接口只返回已发布文章。后台需要先登录，支持 `GET/POST /api/v1/admin/posts`、`GET/PATCH /api/v1/admin/posts/{id}`、`POST /api/v1/admin/posts/{id}/publish` 和 `.../unpublish`。修改文章时需把读取到的 `version` 一并提交，避免覆盖较新的编辑。
 
 ## 测试
 

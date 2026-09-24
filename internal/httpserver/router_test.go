@@ -10,7 +10,7 @@ import (
 func TestHealthReturnsOK(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
-	NewRouter(nil).ServeHTTP(response, request)
+	NewRouter(nil, nil).ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", response.Code)
 	}
@@ -18,14 +18,14 @@ func TestHealthReturnsOK(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body["status"] != "ok" {
-		t.Fatalf("expected status ok, got %q", body["status"])
+	if body["status"] != "正常" {
+		t.Fatalf("健康检查状态应为中文，实际为 %q", body["status"])
 	}
 }
 
 func TestUnknownRouteReturnsNotFound(t *testing.T) {
 	response := httptest.NewRecorder()
-	NewRouter(nil).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/missing", nil))
+	NewRouter(nil, nil).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/missing", nil))
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", response.Code)
 	}
