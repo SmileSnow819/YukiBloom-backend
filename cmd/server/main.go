@@ -1,3 +1,8 @@
+// @title YukiBloom 后端接口
+// @version 1.0
+// @description YukiBloom 网站的文章、图片、个人内容和站点页面 API。JSON 响应统一使用 code、message、data；成功 code 为 0。错误码 10001、10002、10003、10004、10005、10006、10007、10008、50000 分别表示参数错误、未登录、无权限、资源不存在、内容冲突、请求过大、请求过频、不支持请求方法和服务错误。
+// @BasePath /
+// @schemes http https
 package main
 
 import (

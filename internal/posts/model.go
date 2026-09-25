@@ -20,7 +20,7 @@ type Post struct {
 	Version      int64           `json:"version"`
 	Categories   []string        `json:"categories"`
 	Tags         []string        `json:"tags"`
-	Extra        json.RawMessage `json:"extra"`
+	Extra        json.RawMessage `json:"extra" swaggertype:"object"`
 	CoverMediaID *string         `json:"coverMediaId,omitempty"`
 }
 
@@ -33,7 +33,7 @@ type PostInput struct {
 	DisplayDate  *time.Time      `json:"displayDate"`
 	Categories   []string        `json:"categories"`
 	Tags         []string        `json:"tags"`
-	Extra        json.RawMessage `json:"extra"`
+	Extra        json.RawMessage `json:"extra" swaggertype:"object"`
 	CoverMediaID *string         `json:"coverMediaId"`
 	Version      int64           `json:"version"`
 }

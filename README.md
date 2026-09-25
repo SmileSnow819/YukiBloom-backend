@@ -36,7 +36,36 @@ docker compose exec \
   api /create-admin
 ```
 
-登录接口为 `POST /api/v1/admin/login`，请求 JSON 包含 `username` 和 `password`。成功后服务设置 `HttpOnly` 会话 Cookie，并返回后续写请求使用的 `csrfToken`。后台会话查询为 `GET /api/v1/admin/session`；退出为 `POST /api/v1/admin/logout`，写请求需在 `X-CSRF-Token` 请求头传入 CSRF 令牌。连续登录失败会触发限流。
+登录接口为 `POST /api/v1/admin/login`，请求 JSON 包含 `username` 和 `password`。成功后服务设置 `HttpOnly` 会话 Cookie，并在 `data.csrfToken` 返回后续写请求使用的令牌。后台会话查询为 `GET /api/v1/admin/session`；退出为 `POST /api/v1/admin/logout`，写请求需在 `X-CSRF-Token` 请求头传入 CSRF 令牌。连续登录失败会触发限流。
+
+所有 JSON 接口统一返回 `{ "code": 0, "message": "成功", "data": ... }`。失败时 `message` 是后端返回的中文说明，`data` 为 `null`；`code` 使用稳定的业务错误码，HTTP 状态码继续表达请求状态：
+
+| 业务码 | 含义 | HTTP 状态 |
+| --- | --- | --- |
+| `10001` | 参数或请求内容错误 | 400 |
+| `10002` | 未登录或会话无效 | 401 |
+| `10003` | 无权限或 CSRF 校验失败 | 403 |
+| `10004` | 资源不存在 | 404 |
+| `10005` | 内容版本冲突或标识重复 | 409 |
+| `10006` | 请求内容过大 | 413 |
+| `10007` | 请求过频 | 429 |
+| `10008` | 不支持的请求方法 | 405 |
+| `50000` | 服务内部错误 | 500 |
+
+前端可按 `code` 判断错误类别，并直接展示 `message`，无需硬编码错误文案。图片文件成功读取时返回原始二进制内容。
+
+## 接口文档与 Apifox
+
+接口说明写在 Gin 处理器的注释中，使用 [Swaggo](https://github.com/swaggo/swag) 生成 Swagger 2.0 文档。生成器是本地开发工具，不会作为 API 服务的运行依赖。首次使用时安装并在仓库根目录生成 JSON 和 YAML：
+
+```bash
+go install github.com/swaggo/swag/cmd/swag@v1.16.6
+swag init --dir cmd/server,internal/apiresponse,internal/auth,internal/database,internal/httpserver,internal/importer,internal/media,internal/personal,internal/posts,internal/sitecontent --generalInfo main.go --parseInternal --output api-docs --outputTypes json,yaml
+```
+
+在 Apifox 项目中选择“导入数据”，导入 `api-docs/swagger.json`。设置环境前置 URL 为 `http://127.0.0.1:8080`。先调用管理员登录接口；Apifox 会保存响应中的 `yb_session` Cookie，后续请求会自动携带。后台写请求还要把登录响应的 `csrfToken` 填入 `X-CSRF-Token` 请求头。[Apifox Cookie 说明](https://docs.apifox.com/create-and-send-cookie)
+
+接口或数据结构变化后重新运行生成命令，再将更新的 JSON 导入 Apifox。生成文件保存在 `api-docs/swagger.json` 和 `api-docs/swagger.yaml`，可提交到仓库供维护者和 Apifox 共用。
 
 ## 文章接口
 
@@ -75,11 +104,11 @@ curl -i -c /tmp/yukibloom-api-test-cookies.txt \
   http://127.0.0.1:8080/api/v1/admin/login
 ```
 
-登录成功会返回 `csrfToken` 并写入 Cookie。后台的新增、修改、发布、撤回、上传和删除请求需要携带 Cookie，并在请求头中传入 `X-CSRF-Token: 登录响应中的 csrfToken`。例如：
+登录成功会在 `data.csrfToken` 返回 CSRF 令牌并写入 Cookie。后台的新增、修改、发布、撤回、上传和删除请求需要携带 Cookie，并在请求头中传入 `X-CSRF-Token: 登录响应中的 data.csrfToken`。例如：
 
 ```bash
 curl -i -b /tmp/yukibloom-api-test-cookies.txt \
-  -H 'X-CSRF-Token: 登录响应中的 csrfToken' \
+  -H 'X-CSRF-Token: 登录响应中的 data.csrfToken' \
   http://127.0.0.1:8080/api/v1/admin/posts
 ```
 

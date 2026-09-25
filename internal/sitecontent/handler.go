@@ -10,6 +10,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"github.com/SmileSnow819/YukiBloom-backend/internal/apiresponse"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -30,6 +31,13 @@ func NewHandler(store *Store) *Handler { return &Handler{store: store} }
 // 读取公开站点内容，并过滤未启用或尚未生效的条目。
 // 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文。
 // 返回：无；结果通过 HTTP JSON 响应返回。
+// @Summary 查询公开站点内容
+// @Description 返回公开站点资料、导航、精选内容、公告、已审核友链及音乐信息。
+// @Tags 站点内容
+// @Produce json
+// @Success 200 {object} apiresponse.Envelope{data=Content} "公开站点内容"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，查询失败"
+// @Router /api/v1/site-content [get]
 func (h *Handler) PublicContent(c *gin.Context) {
 	content, err := h.store.Get(c.Request.Context())
 	if err != nil {
@@ -90,43 +98,65 @@ func (h *Handler) PublicContent(c *gin.Context) {
 		}
 	}
 	content.BackgroundMusic = background
-	c.JSON(http.StatusOK, content)
+	apiresponse.Success(c, http.StatusOK, content)
 }
 
 // 读取包含管理字段的完整站点内容。
 // 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文。
 // 返回：无；结果通过 HTTP JSON 响应返回。
+// @Summary 查询后台站点内容
+// @Description 需要先通过管理员登录接口登录；响应包含未公开条目和 version。
+// @Tags 管理站点内容
+// @Produce json
+// @Success 200 {object} apiresponse.Envelope{data=Content} "完整站点内容"
+// @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，查询失败"
+// @Router /api/v1/admin/site-content [get]
 func (h *Handler) AdminContent(c *gin.Context) {
 	content, err := h.store.Get(c.Request.Context())
 	if err != nil {
 		siteContentError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, content)
+	apiresponse.Success(c, http.StatusOK, content)
 }
 
 // 校验并整体替换站点内容，处理版本冲突和重复标识。
 // 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文及 JSON 请求体。
 // 返回：无；操作结果通过 HTTP 状态码和 JSON 响应返回。
+// @Summary 整体保存站点内容
+// @Description 需要登录和 CSRF 令牌。必须提交查询时取得的 version，旧版本会返回冲突。
+// @Tags 管理站点内容
+// @Accept json
+// @Produce json
+// @Param X-CSRF-Token header string true "登录接口返回的 csrfToken"
+// @Param content body Content true "完整站点内容及当前 version"
+// @Success 200 {object} apiresponse.Envelope{data=Content} "保存后的站点内容"
+// @Failure 400 {object} apiresponse.Envelope "code=10001，站点内容无效"
+// @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
+// @Failure 403 {object} apiresponse.Envelope "code=10003，CSRF 校验失败"
+// @Failure 409 {object} apiresponse.Envelope "code=10005，版本冲突或内容标识重复"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，保存失败"
+// @Router /api/v1/admin/site-content [put]
 func (h *Handler) ReplaceContent(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4<<20)
 	var content Content
 	if err := c.ShouldBindJSON(&content); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请求内容格式不正确或超过 4 MiB"})
+		apiresponse.Failure(c, apiresponse.InvalidRequest, "请求内容格式不正确或超过 4 MiB")
 		return
 	}
 	if err := ValidateContent(content); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		apiresponse.Failure(c, apiresponse.InvalidRequest, err.Error())
 		return
 	}
 	if err := h.store.Replace(c.Request.Context(), content); err != nil {
 		if errors.Is(err, ErrConflict) {
-			c.JSON(http.StatusConflict, gin.H{"error": "站点内容已被其他操作修改，请刷新后重试"})
+			apiresponse.Failure(c, apiresponse.Conflict, "站点内容已被其他操作修改，请刷新后重试")
 			return
 		}
 		var databaseError *pgconn.PgError
 		if errors.As(err, &databaseError) && databaseError.Code == "23505" {
-			c.JSON(http.StatusConflict, gin.H{"error": "站点内容存在重复的标识或链接"})
+			apiresponse.Failure(c, apiresponse.Conflict, "站点内容存在重复的标识或链接")
 			return
 		}
 		siteContentError(c, err)
@@ -138,94 +168,137 @@ func (h *Handler) ReplaceContent(c *gin.Context) {
 // 按语言和链接标识返回已发布的独立页面。
 // 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文，包含 locale 查询参数和 slug 路径参数。
 // 返回：无；页面或错误通过 HTTP JSON 响应返回。
+// @Summary 查询公开独立页面
+// @Tags 页面
+// @Produce json
+// @Param slug path string true "页面链接标识"
+// @Param locale query string true "语言代码，例如 zh-CN"
+// @Success 200 {object} apiresponse.Envelope{data=Page} "页面内容"
+// @Failure 400 {object} apiresponse.Envelope "code=10001，语言代码无效"
+// @Failure 404 {object} apiresponse.Envelope "code=10004，页面不存在或尚未发布"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，查询失败"
+// @Router /api/v1/pages/{slug} [get]
 func (h *Handler) PublicPage(c *gin.Context) {
 	locale := c.Query("locale")
 	if !localePattern.MatchString(locale) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请提供有效的 locale 参数"})
+		apiresponse.Failure(c, apiresponse.InvalidRequest, "请提供有效的 locale 参数")
 		return
 	}
 	page, err := h.store.PublicPage(c.Request.Context(), locale, c.Param("slug"))
 	if errors.Is(err, ErrNotFound) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "页面不存在"})
+		apiresponse.Failure(c, apiresponse.NotFound, "页面不存在")
 		return
 	}
 	if err != nil {
 		siteContentError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, page)
+	apiresponse.Success(c, http.StatusOK, page)
 }
 
 // 返回管理端可见的全部独立页面。
 // 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文。
 // 返回：无；页面列表通过 HTTP JSON 响应返回。
+// @Summary 查询后台页面列表
+// @Description 需要先通过管理员登录接口登录，结果包含草稿和已发布页面。
+// @Tags 管理页面
+// @Produce json
+// @Success 200 {object} apiresponse.Envelope{data=map[string]interface{}} "页面列表"
+// @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，查询失败"
+// @Router /api/v1/admin/pages [get]
 func (h *Handler) AdminPages(c *gin.Context) {
 	pages, err := h.store.AdminPages(c.Request.Context())
 	if err != nil {
 		siteContentError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": pages})
+	apiresponse.Success(c, http.StatusOK, gin.H{"items": pages})
 }
 
 // 按 ID 返回管理端页面详情。
 // 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文，包含页面 ID 路径参数。
 // 返回：无；页面或错误通过 HTTP JSON 响应返回。
+// @Summary 查询后台页面详情
+// @Description 需要先通过管理员登录接口登录。
+// @Tags 管理页面
+// @Produce json
+// @Param id path string true "页面 UUID"
+// @Success 200 {object} apiresponse.Envelope{data=Page} "页面详情"
+// @Failure 400 {object} apiresponse.Envelope "code=10001，页面 ID 格式错误"
+// @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
+// @Failure 404 {object} apiresponse.Envelope "code=10004，页面不存在"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，查询失败"
+// @Router /api/v1/admin/pages/{id} [get]
 func (h *Handler) AdminPageByID(c *gin.Context) {
 	if !pageIDPattern.MatchString(c.Param("id")) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "页面 ID 格式不正确"})
+		apiresponse.Failure(c, apiresponse.InvalidRequest, "页面 ID 格式不正确")
 		return
 	}
 	page, err := h.store.AdminPageByID(c.Request.Context(), c.Param("id"))
 	if errors.Is(err, ErrNotFound) {
-		c.JSON(http.StatusNotFound, gin.H{"error": ErrNotFound.Error()})
+		apiresponse.Failure(c, apiresponse.NotFound, ErrNotFound.Error())
 		return
 	}
 	if err != nil {
 		siteContentError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, page)
+	apiresponse.Success(c, http.StatusOK, page)
 }
 
 // 创建或更新独立页面草稿，并校验请求中的版本和标识。
 // 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文及页面 JSON 请求体。
 // 返回：无；保存后的页面或错误通过 HTTP 响应返回。
+// @Summary 创建页面草稿
+// @Description 需要登录和 CSRF 令牌。
+// @Tags 管理页面
+// @Accept json
+// @Produce json
+// @Param X-CSRF-Token header string true "登录接口返回的 csrfToken"
+// @Param page body Page true "页面内容"
+// @Success 201 {object} apiresponse.Envelope{data=Page} "新建页面"
+// @Failure 400 {object} apiresponse.Envelope "code=10001，页面内容无效"
+// @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
+// @Failure 403 {object} apiresponse.Envelope "code=10003，CSRF 校验失败"
+// @Failure 409 {object} apiresponse.Envelope "code=10005，语言和链接标识已被占用"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，保存失败"
+// @Router /api/v1/admin/pages [post]
 func (h *Handler) SavePage(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2<<20)
 	var page Page
 	if err := c.ShouldBindJSON(&page); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请求内容格式不正确"})
+		apiresponse.Failure(c, apiresponse.InvalidRequest, "请求内容格式不正确")
 		return
 	}
 	isUpdate := c.Request.Method == http.MethodPatch
 	if isUpdate {
 		id := c.Param("id")
 		if !pageIDPattern.MatchString(id) || page.ID != "" && page.ID != id {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "页面 ID 与请求地址不一致"})
+			apiresponse.Failure(c, apiresponse.InvalidRequest, "页面 ID 与请求地址不一致")
 			return
 		}
 		page.ID = id
 	} else if page.ID != "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "创建页面时不能填写已有页面 ID"})
+		apiresponse.Failure(c, apiresponse.InvalidRequest, "创建页面时不能填写已有页面 ID")
 		return
 	}
 	if err := ValidatePage(page, isUpdate); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		apiresponse.Failure(c, apiresponse.InvalidRequest, err.Error())
 		return
 	}
 	if page.ID != "" && !pageIDPattern.MatchString(page.ID) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "页面 ID 格式不正确"})
+		apiresponse.Failure(c, apiresponse.InvalidRequest, "页面 ID 格式不正确")
 		return
 	}
 	isNew := !isUpdate
 	page, err := h.store.SavePage(c.Request.Context(), page, false)
 	if errors.Is(err, ErrConflict) {
-		c.JSON(http.StatusConflict, gin.H{"error": ErrConflict.Error()})
+		apiresponse.Failure(c, apiresponse.Conflict, ErrConflict.Error())
 		return
 	}
 	if errors.Is(err, ErrNotFound) {
-		c.JSON(http.StatusNotFound, gin.H{"error": ErrNotFound.Error()})
+		apiresponse.Failure(c, apiresponse.NotFound, ErrNotFound.Error())
 		return
 	}
 	if err != nil {
@@ -236,17 +309,64 @@ func (h *Handler) SavePage(c *gin.Context) {
 	if isNew {
 		status = http.StatusCreated
 	}
-	c.JSON(status, page)
+	apiresponse.Success(c, status, page)
 }
+
+// UpdatePage 处理独立页面的局部更新请求。
+// 参数：h 是站点内容处理器；c 是包含页面 ID 和 JSON 请求体的 HTTP 上下文。
+// 返回：无；更新后的页面或中文错误写入 HTTP 响应。
+// @Summary 更新页面草稿
+// @Description 需要登录和 CSRF 令牌。请求中的 version 必须与查询页面时一致，否则返回冲突。
+// @Tags 管理页面
+// @Accept json
+// @Produce json
+// @Param id path string true "页面 UUID"
+// @Param X-CSRF-Token header string true "登录接口返回的 csrfToken"
+// @Param page body Page true "页面新内容及当前 version"
+// @Success 200 {object} apiresponse.Envelope{data=Page} "更新后的页面"
+// @Failure 400 {object} apiresponse.Envelope "code=10001，页面内容、ID 或版本无效"
+// @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
+// @Failure 403 {object} apiresponse.Envelope "code=10003，CSRF 校验失败"
+// @Failure 404 {object} apiresponse.Envelope "code=10004，页面不存在"
+// @Failure 409 {object} apiresponse.Envelope "code=10005，页面版本或链接标识冲突"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，保存失败"
+// @Router /api/v1/admin/pages/{id} [patch]
+func (h *Handler) UpdatePage(c *gin.Context) { h.SavePage(c) }
 
 // 将指定页面发布。
 // 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文，包含页面 ID。
 // 返回：无；更新后的页面或错误通过 HTTP 响应返回。
+// @Summary 发布页面
+// @Description 需要登录和 CSRF 令牌。
+// @Tags 管理页面
+// @Produce json
+// @Param id path string true "页面 UUID"
+// @Param X-CSRF-Token header string true "登录接口返回的 csrfToken"
+// @Success 200 {object} apiresponse.Envelope{data=Page} "已发布页面"
+// @Failure 400 {object} apiresponse.Envelope "code=10001，页面 ID 格式错误"
+// @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
+// @Failure 403 {object} apiresponse.Envelope "code=10003，CSRF 校验失败"
+// @Failure 404 {object} apiresponse.Envelope "code=10004，页面不存在"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，发布失败"
+// @Router /api/v1/admin/pages/{id}/publish [post]
 func (h *Handler) PublishPage(c *gin.Context) { h.setPagePublished(c, true) }
 
 // 将指定页面取消发布并恢复为草稿。
 // 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文，包含页面 ID。
 // 返回：无；更新后的页面或错误通过 HTTP 响应返回。
+// @Summary 撤回页面
+// @Description 需要登录和 CSRF 令牌。撤回后页面不再出现在公开接口。
+// @Tags 管理页面
+// @Produce json
+// @Param id path string true "页面 UUID"
+// @Param X-CSRF-Token header string true "登录接口返回的 csrfToken"
+// @Success 200 {object} apiresponse.Envelope{data=Page} "已撤回页面"
+// @Failure 400 {object} apiresponse.Envelope "code=10001，页面 ID 格式错误"
+// @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
+// @Failure 403 {object} apiresponse.Envelope "code=10003，CSRF 校验失败"
+// @Failure 404 {object} apiresponse.Envelope "code=10004，页面不存在"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，撤回失败"
+// @Router /api/v1/admin/pages/{id}/unpublish [post]
 func (h *Handler) UnpublishPage(c *gin.Context) { h.setPagePublished(c, false) }
 
 // 设置页面的发布状态。
@@ -254,39 +374,52 @@ func (h *Handler) UnpublishPage(c *gin.Context) { h.setPagePublished(c, false) }
 // 返回：无；更新后的页面或错误通过 HTTP 响应返回。
 func (h *Handler) setPagePublished(c *gin.Context, published bool) {
 	if !pageIDPattern.MatchString(c.Param("id")) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "页面 ID 格式不正确"})
+		apiresponse.Failure(c, apiresponse.InvalidRequest, "页面 ID 格式不正确")
 		return
 	}
 	page, err := h.store.SetPagePublished(c.Request.Context(), c.Param("id"), published)
 	if errors.Is(err, ErrNotFound) {
-		c.JSON(http.StatusNotFound, gin.H{"error": ErrNotFound.Error()})
+		apiresponse.Failure(c, apiresponse.NotFound, ErrNotFound.Error())
 		return
 	}
 	if err != nil {
 		siteContentError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, page)
+	apiresponse.Success(c, http.StatusOK, page)
 }
 
 // 删除指定独立页面。
 // 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文，包含页面 ID。
 // 返回：无；结果通过 HTTP 状态码返回。
+// @Summary 删除页面
+// @Description 需要登录和 CSRF 令牌。
+// @Tags 管理页面
+// @Produce json
+// @Param id path string true "页面 UUID"
+// @Param X-CSRF-Token header string true "登录接口返回的 csrfToken"
+// @Success 200 {object} apiresponse.Envelope "删除成功，data 为 null"
+// @Failure 400 {object} apiresponse.Envelope "code=10001，页面 ID 格式错误"
+// @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
+// @Failure 403 {object} apiresponse.Envelope "code=10003，CSRF 校验失败"
+// @Failure 404 {object} apiresponse.Envelope "code=10004，页面不存在"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，删除失败"
+// @Router /api/v1/admin/pages/{id} [delete]
 func (h *Handler) DeletePage(c *gin.Context) {
 	if !pageIDPattern.MatchString(c.Param("id")) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "页面 ID 格式不正确"})
+		apiresponse.Failure(c, apiresponse.InvalidRequest, "页面 ID 格式不正确")
 		return
 	}
 	err := h.store.DeletePage(c.Request.Context(), c.Param("id"))
 	if errors.Is(err, ErrNotFound) {
-		c.JSON(http.StatusNotFound, gin.H{"error": ErrNotFound.Error()})
+		apiresponse.Failure(c, apiresponse.NotFound, ErrNotFound.Error())
 		return
 	}
 	if err != nil {
 		siteContentError(c, err)
 		return
 	}
-	c.Status(http.StatusNoContent)
+	apiresponse.Success(c, http.StatusOK, nil)
 }
 
 // 校验独立页面的语言、标识、标题、正文长度和更新版本。
@@ -466,5 +599,5 @@ func validAsset(value string) bool {
 // 返回：无；通过 HTTP 500 JSON 响应返回错误信息。
 func siteContentError(c *gin.Context, err error) {
 	log.Printf("站点内容请求失败：%v", err)
-	c.JSON(http.StatusInternalServerError, gin.H{"error": "站点内容暂时不可用，请稍后再试"})
+	apiresponse.Failure(c, apiresponse.InternalError, "站点内容暂时不可用，请稍后再试")
 }

@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/SmileSnow819/YukiBloom-backend/internal/apiresponse"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/auth"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/importer"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/media"
@@ -12,6 +13,18 @@ import (
 	"github.com/SmileSnow819/YukiBloom-backend/internal/sitecontent"
 	"github.com/gin-gonic/gin"
 )
+
+// Health 返回 API 服务的健康状态。
+// 参数：c 是当前 HTTP 请求上下文。
+// 返回：无；状态信息通过 HTTP JSON 响应返回。
+// @Summary 检查 API 服务状态
+// @Tags 服务状态
+// @Produce json
+// @Success 200 {object} apiresponse.Envelope{data=map[string]string} "服务正常"
+// @Router /api/v1/health [get]
+func Health(c *gin.Context) {
+	apiresponse.Success(c, http.StatusOK, gin.H{"status": "正常"})
+}
 
 // NewRouter 注册健康检查、公开内容、管理员操作和图片访问路由。
 // 参数：authHandler 管理登录和会话；postHandler 管理文章；mediaHandler 管理图片；importerHandler 处理 Markdown 导入；personalHandler 管理足迹和实习经历；siteHandler 管理站点内容与页面。
@@ -28,15 +41,13 @@ func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandl
 			if recovered := recover(); recovered != nil {
 				log.Printf("请求处理异常：%v", recovered)
 				if !c.Writer.Written() {
-					c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "服务发生异常，请稍后再试"})
+					apiresponse.Abort(c, apiresponse.InternalError, "服务发生异常，请稍后再试")
 				}
 			}
 		}()
 		c.Next()
 	})
-	router.GET("/api/v1/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "正常"})
-	})
+	router.GET("/api/v1/health", Health)
 	if authHandler != nil {
 		router.POST("/api/v1/admin/login", authHandler.Login)
 		admin := router.Group("/api/v1/admin", authHandler.RequireSession())
@@ -71,7 +82,7 @@ func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandl
 			admin.GET("/pages", siteHandler.AdminPages)
 			admin.POST("/pages", siteHandler.SavePage)
 			admin.GET("/pages/:id", siteHandler.AdminPageByID)
-			admin.PATCH("/pages/:id", siteHandler.SavePage)
+			admin.PATCH("/pages/:id", siteHandler.UpdatePage)
 			admin.DELETE("/pages/:id", siteHandler.DeletePage)
 			admin.POST("/pages/:id/publish", siteHandler.PublishPage)
 			admin.POST("/pages/:id/unpublish", siteHandler.UnpublishPage)
@@ -93,10 +104,10 @@ func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandl
 		router.GET("/api/v1/pages/:slug", siteHandler.PublicPage)
 	}
 	router.NoRoute(func(c *gin.Context) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "接口不存在"})
+		apiresponse.Failure(c, apiresponse.NotFound, "接口不存在")
 	})
 	router.NoMethod(func(c *gin.Context) {
-		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "不支持此请求方式"})
+		apiresponse.Failure(c, apiresponse.MethodNotAllowed, "不支持此请求方式")
 	})
 	return router
 }

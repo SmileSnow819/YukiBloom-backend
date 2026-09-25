@@ -57,58 +57,91 @@ func NewStore(pool *pgxpool.Pool, root string) *Store { return &Store{pool: pool
 // 参数：s 是图片存储；ctx 控制数据库操作；source 是图片数据流。
 // 返回：已保存的 Item；读取、校验或保存失败时返回错误。
 func (s *Store) Save(ctx context.Context, source io.Reader) (Item, error) {
-	data, err := io.ReadAll(io.LimitReader(source, MaxUploadBytes+1))
-	if err != nil {
-		return Item{}, fmt.Errorf("读取图片失败：%w", err)
-	}
-	if len(data) > MaxUploadBytes {
-		return Item{}, ErrTooLarge
-	}
-	info, err := Validate(data)
+	data, info, err := readImage(source)
 	if err != nil {
 		return Item{}, err
-	}
-	if err := os.MkdirAll(s.root, 0o750); err != nil {
-		return Item{}, fmt.Errorf("创建图片目录失败：%w", err)
 	}
 	key, err := storageKey(info.Extension)
 	if err != nil {
 		return Item{}, fmt.Errorf("生成图片文件名失败：%w", err)
 	}
-	temp, err := os.CreateTemp(s.root, ".upload-*")
+	path, err := writeImageFile(s.root, key, data)
 	if err != nil {
-		return Item{}, fmt.Errorf("创建图片临时文件失败：%w", err)
+		return Item{}, err
+	}
+	item, err := s.saveImageMetadata(ctx, key, info, int64(len(data)))
+	if err != nil {
+		_ = os.Remove(path)
+		return Item{}, err
+	}
+	item.URL = "/uploads/" + key
+	return item, nil
+}
+
+// readImage 限制读取大小并校验图片内容。
+// 参数：source 是上传图片的数据流。
+// 返回：图片字节、格式和尺寸信息；读取或校验失败时返回对应错误。
+func readImage(source io.Reader) ([]byte, ImageInfo, error) {
+	data, err := io.ReadAll(io.LimitReader(source, MaxUploadBytes+1))
+	if err != nil {
+		return nil, ImageInfo{}, fmt.Errorf("读取图片失败：%w", err)
+	}
+	if len(data) > MaxUploadBytes {
+		return nil, ImageInfo{}, ErrTooLarge
+	}
+	info, err := Validate(data)
+	if err != nil {
+		return nil, ImageInfo{}, err
+	}
+	return data, info, nil
+}
+
+// writeImageFile 以临时文件方式安全写入图片，再原子替换为正式文件。
+// 参数：root 是图片目录；key 是生成后的存储键；data 是已校验的图片内容。
+// 返回：正式图片文件路径；创建、写入或重命名失败时返回错误。
+func writeImageFile(root, key string, data []byte) (string, error) {
+	if err := os.MkdirAll(root, 0o750); err != nil {
+		return "", fmt.Errorf("创建图片目录失败：%w", err)
+	}
+	temp, err := os.CreateTemp(root, ".upload-*")
+	if err != nil {
+		return "", fmt.Errorf("创建图片临时文件失败：%w", err)
 	}
 	tempPath := temp.Name()
 	defer os.Remove(tempPath)
 	if err := temp.Chmod(0o640); err != nil {
-		temp.Close()
-		return Item{}, fmt.Errorf("设置图片文件权限失败：%w", err)
+		_ = temp.Close()
+		return "", fmt.Errorf("设置图片文件权限失败：%w", err)
 	}
 	if _, err := temp.Write(data); err != nil {
-		temp.Close()
-		return Item{}, fmt.Errorf("写入图片失败：%w", err)
+		_ = temp.Close()
+		return "", fmt.Errorf("写入图片失败：%w", err)
 	}
 	if err := temp.Sync(); err != nil {
-		temp.Close()
-		return Item{}, fmt.Errorf("保存图片失败：%w", err)
+		_ = temp.Close()
+		return "", fmt.Errorf("保存图片失败：%w", err)
 	}
 	if err := temp.Close(); err != nil {
-		return Item{}, fmt.Errorf("关闭图片文件失败：%w", err)
+		return "", fmt.Errorf("关闭图片文件失败：%w", err)
 	}
-	path := filepath.Join(s.root, key)
+	path := filepath.Join(root, key)
 	if err := os.Rename(tempPath, path); err != nil {
-		return Item{}, fmt.Errorf("保存图片文件失败：%w", err)
+		return "", fmt.Errorf("保存图片文件失败：%w", err)
 	}
+	return path, nil
+}
+
+// saveImageMetadata 将图片文件信息写入 media 表。
+// 参数：ctx 控制数据库操作；key 是图片存储键；info 是已校验的图片信息；size 是文件字节数。
+// 返回：数据库生成的图片记录；写入失败时返回错误。
+func (s *Store) saveImageMetadata(ctx context.Context, key string, info ImageInfo, size int64) (Item, error) {
 	var item Item
-	err = s.pool.QueryRow(ctx, `INSERT INTO media (storage_key, mime_type, size_bytes, width, height)
+	err := s.pool.QueryRow(ctx, `INSERT INTO media (storage_key, mime_type, size_bytes, width, height)
 		VALUES ($1,$2,$3,$4,$5) RETURNING id, storage_key, mime_type, size_bytes, width, height, created_at`,
-		key, info.MIMEType, len(data), info.Width, info.Height).Scan(&item.ID, &key, &item.MIMEType, &item.SizeBytes, &item.Width, &item.Height, &item.CreatedAt)
+		key, info.MIMEType, size, info.Width, info.Height).Scan(&item.ID, &key, &item.MIMEType, &item.SizeBytes, &item.Width, &item.Height, &item.CreatedAt)
 	if err != nil {
-		_ = os.Remove(path)
 		return Item{}, fmt.Errorf("保存图片信息失败：%w", err)
 	}
-	item.URL = "/uploads/" + key
 	return item, nil
 }
 

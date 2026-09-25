@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/SmileSnow819/YukiBloom-backend/internal/apiresponse"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,25 +28,44 @@ func NewHandler(store *Store) *Handler { return &Handler{store: store} }
 // GetFootprints 查询公开足迹并返回地点、停留和路线数据。
 // 参数：h 是个人内容处理器；c 是当前 HTTP 请求上下文。
 // 返回：无；查询结果或中文错误写入 HTTP 响应。
+// @Summary 查询公开足迹
+// @Tags 个人内容
+// @Produce json
+// @Success 200 {object} apiresponse.Envelope{data=Footprints} "地点、停留记录和路线"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，查询失败"
+// @Router /api/v1/footprints [get]
 func (h *Handler) GetFootprints(c *gin.Context) {
 	data, err := h.store.Footprints(c.Request.Context())
 	if err != nil {
 		personalError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	apiresponse.Success(c, http.StatusOK, data)
 }
 
 // ReplaceFootprints 校验管理员提交的足迹并整体保存。
 // 参数：h 是个人内容处理器；c 是包含 JSON 请求体的 HTTP 上下文。
 // 返回：无；保存后的内容或中文错误写入 HTTP 响应。
+// @Summary 整体保存足迹
+// @Description 需要登录和 CSRF 令牌；请求会替换全部地点、停留记录和路线。
+// @Tags 管理个人内容
+// @Accept json
+// @Produce json
+// @Param X-CSRF-Token header string true "登录接口返回的 csrfToken"
+// @Param footprints body Footprints true "完整足迹数据"
+// @Success 200 {object} apiresponse.Envelope{data=Footprints} "保存后的足迹数据"
+// @Failure 400 {object} apiresponse.Envelope "code=10001，足迹数据无效"
+// @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
+// @Failure 403 {object} apiresponse.Envelope "code=10003，CSRF 校验失败"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，保存失败"
+// @Router /api/v1/admin/footprints [put]
 func (h *Handler) ReplaceFootprints(c *gin.Context) {
 	var data Footprints
 	if !bindContent(c, &data) {
 		return
 	}
 	if err := ValidateFootprints(data); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		apiresponse.Failure(c, apiresponse.InvalidRequest, err.Error())
 		return
 	}
 	if err := h.store.ReplaceFootprints(c.Request.Context(), data); err != nil {
@@ -58,27 +78,44 @@ func (h *Handler) ReplaceFootprints(c *gin.Context) {
 // GetTimeline 查询并返回公开的实习经历时间线。
 // 参数：h 是个人内容处理器；c 是当前 HTTP 请求上下文。
 // 返回：无；时间线或中文错误写入 HTTP 响应。
+// @Summary 查询公开实习经历
+// @Tags 个人内容
+// @Produce json
+// @Success 200 {object} apiresponse.Envelope{data=map[string]interface{}} "包含 items 数组的时间线"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，查询失败"
+// @Router /api/v1/timeline [get]
 func (h *Handler) GetTimeline(c *gin.Context) {
 	items, err := h.store.Timeline(c.Request.Context())
 	if err != nil {
 		personalError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": items})
+	apiresponse.Success(c, http.StatusOK, gin.H{"items": items})
 }
 
 // ReplaceTimeline 校验管理员提交的经历列表并整体保存。
 // 参数：h 是个人内容处理器；c 是包含 JSON 请求体的 HTTP 上下文。
 // 返回：无；保存后的时间线或中文错误写入 HTTP 响应。
+// @Summary 整体保存实习经历
+// @Description 需要登录和 CSRF 令牌；请求会替换全部经历条目。
+// @Tags 管理个人内容
+// @Accept json
+// @Produce json
+// @Param X-CSRF-Token header string true "登录接口返回的 csrfToken"
+// @Param timeline body TimelineInput true "包含 items 实习经历数组"
+// @Success 200 {object} apiresponse.Envelope{data=map[string]interface{}} "保存后的时间线"
+// @Failure 400 {object} apiresponse.Envelope "code=10001，时间线数据无效"
+// @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
+// @Failure 403 {object} apiresponse.Envelope "code=10003，CSRF 校验失败"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，保存失败"
+// @Router /api/v1/admin/timeline [put]
 func (h *Handler) ReplaceTimeline(c *gin.Context) {
-	var body struct {
-		Items []Internship `json:"items"`
-	}
+	var body TimelineInput
 	if !bindContent(c, &body) {
 		return
 	}
 	if err := ValidateTimeline(body.Items); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		apiresponse.Failure(c, apiresponse.InvalidRequest, err.Error())
 		return
 	}
 	if err := h.store.ReplaceTimeline(c.Request.Context(), body.Items); err != nil {
@@ -94,7 +131,7 @@ func (h *Handler) ReplaceTimeline(c *gin.Context) {
 func bindContent(c *gin.Context, output any) bool {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4<<20)
 	if err := c.ShouldBindJSON(output); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请求内容格式不正确或超过 4 MiB"})
+		apiresponse.Failure(c, apiresponse.InvalidRequest, "请求内容格式不正确或超过 4 MiB")
 		return false
 	}
 	return true
@@ -215,5 +252,5 @@ func validImageReference(value string) bool {
 // 返回：无；错误响应写入 HTTP 响应。
 func personalError(c *gin.Context, err error) {
 	log.Printf("个人内容请求失败：%v", err)
-	c.JSON(http.StatusInternalServerError, gin.H{"error": "读取或保存个人内容失败，请稍后再试"})
+	apiresponse.Failure(c, apiresponse.InternalError, "读取或保存个人内容失败，请稍后再试")
 }

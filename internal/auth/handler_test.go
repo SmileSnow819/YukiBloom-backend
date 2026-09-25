@@ -37,8 +37,14 @@ func TestLoginAndProtectedMutation(t *testing.T) {
 	if len(cookies) != 1 || cookies[0].Name != "yb_session" || !cookies[0].HttpOnly || !cookies[0].Secure || cookies[0].SameSite != http.SameSiteLaxMode {
 		t.Fatalf("unexpected session cookie: %+v", cookies)
 	}
-	var loginBody struct{ CSRFToken string `json:"csrfToken"` }
-	if err := json.Unmarshal(login.Body.Bytes(), &loginBody); err != nil || loginBody.CSRFToken == "" {
+	var loginBody struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    struct {
+			CSRFToken string `json:"csrfToken"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(login.Body.Bytes(), &loginBody); err != nil || loginBody.Code != 0 || loginBody.Message != "成功" || loginBody.Data.CSRFToken == "" {
 		t.Fatalf("missing CSRF token: %v", err)
 	}
 
@@ -51,7 +57,7 @@ func TestLoginAndProtectedMutation(t *testing.T) {
 	if withoutCSRF.Code != http.StatusForbidden {
 		t.Fatalf("expected 403 without CSRF, got %d", withoutCSRF.Code)
 	}
-	withCSRF := postJSON(router, "/protected", `{}`, cookies[0], loginBody.CSRFToken)
+	withCSRF := postJSON(router, "/protected", `{}`, cookies[0], loginBody.Data.CSRFToken)
 	if withCSRF.Code != http.StatusNoContent {
 		t.Fatalf("expected 204 with session and CSRF, got %d", withCSRF.Code)
 	}

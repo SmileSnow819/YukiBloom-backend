@@ -52,3 +52,8 @@ type Internship struct {
 	Description string `json:"description" yaml:"description"`
 	SortOrder   int    `json:"sortOrder" yaml:"sortOrder"`
 }
+
+// TimelineInput 是整体保存实习经历接口的请求体。
+type TimelineInput struct {
+	Items []Internship `json:"items"`
+}

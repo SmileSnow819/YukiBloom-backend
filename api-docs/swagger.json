@@ -1,0 +1,2990 @@
+{
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "YukiBloom 网站的文章、图片、个人内容和站点页面 API。JSON 响应统一使用 code、message、data；成功 code 为 0，失败 code 与 HTTP 状态码一致。",
+        "title": "YukiBloom 后端接口",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/api/v1/admin/footprints": {
+            "put": {
+                "description": "需要登录和 CSRF 令牌；请求会替换全部地点、停留记录和路线。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理个人内容"
+                ],
+                "summary": "整体保存足迹",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "完整足迹数据",
+                        "name": "footprints",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/personal.Footprints"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "保存后的足迹数据",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/personal.Footprints"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "足迹数据无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "保存失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/login": {
+            "post": {
+                "description": "验证管理员账号并设置 HttpOnly 会话 Cookie。成功响应中的 csrfToken 用于后续写请求。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理员会话"
+                ],
+                "summary": "管理员登录",
+                "parameters": [
+                    {
+                        "description": "登录凭据，包含 username 和 password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "登录成功，返回 csrfToken，并通过 Set-Cookie 设置会话",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "用户名或密码为空或格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "用户名或密码错误",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "429": {
+                        "description": "登录尝试过多",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "登录服务暂不可用",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/logout": {
+            "post": {
+                "description": "删除当前登录会话并清除会话 Cookie。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理员会话"
+                ],
+                "summary": "管理员退出",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "退出成功，data 为 null",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "退出失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/media": {
+            "get": {
+                "description": "需要先通过管理员登录接口登录。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理图片"
+                ],
+                "summary": "查询图片库",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码，默认 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量，默认 20，最大 100",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "包含 items、page、limit、total 的分页结果",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": true
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "分页参数无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "需要登录和 CSRF 令牌。表单字段 file 接受 JPEG、PNG 或 WebP，文件最大 10 MiB。",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理图片"
+                ],
+                "summary": "上传图片",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "图片文件",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "图片记录",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/media.Item"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "图片格式或请求无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "413": {
+                        "description": "图片超过大小限制",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "上传失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/media/{id}": {
+            "delete": {
+                "description": "需要登录和 CSRF 令牌。被文章、页面或站点内容引用的图片不能删除。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理图片"
+                ],
+                "summary": "删除未引用图片",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "图片 UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功，data 为 null",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "400": {
+                        "description": "图片 ID 格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "图片不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "图片仍被内容引用",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "删除失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/pages": {
+            "get": {
+                "description": "需要先通过管理员登录接口登录，结果包含草稿和已发布页面。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理页面"
+                ],
+                "summary": "查询后台页面列表",
+                "responses": {
+                    "200": {
+                        "description": "页面列表",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": true
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "需要登录和 CSRF 令牌。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理页面"
+                ],
+                "summary": "创建页面草稿",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "页面内容",
+                        "name": "page",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/sitecontent.Page"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "新建页面",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sitecontent.Page"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "页面内容无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "语言和链接标识已被占用",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "保存失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/pages/{id}": {
+            "get": {
+                "description": "需要先通过管理员登录接口登录。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理页面"
+                ],
+                "summary": "查询后台页面详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页面 UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "页面详情",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sitecontent.Page"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "页面 ID 格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "页面不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "需要登录和 CSRF 令牌。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理页面"
+                ],
+                "summary": "删除页面",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页面 UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功，data 为 null",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "400": {
+                        "description": "页面 ID 格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "页面不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "删除失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "需要登录和 CSRF 令牌。请求中的 version 必须与查询页面时一致，否则返回冲突。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理页面"
+                ],
+                "summary": "更新页面草稿",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页面 UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "页面新内容及当前 version",
+                        "name": "page",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/sitecontent.Page"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新后的页面",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sitecontent.Page"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "页面内容、ID 或版本无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "页面不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "页面版本或链接标识冲突",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "保存失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/pages/{id}/publish": {
+            "post": {
+                "description": "需要登录和 CSRF 令牌。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理页面"
+                ],
+                "summary": "发布页面",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页面 UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "已发布页面",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sitecontent.Page"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "页面 ID 格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "页面不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "发布失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/pages/{id}/unpublish": {
+            "post": {
+                "description": "需要登录和 CSRF 令牌。撤回后页面不再出现在公开接口。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理页面"
+                ],
+                "summary": "撤回页面",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页面 UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "已撤回页面",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sitecontent.Page"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "页面 ID 格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "页面不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "撤回失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/posts": {
+            "get": {
+                "description": "需要先通过管理员登录接口登录，浏览器会自动携带会话 Cookie。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理文章"
+                ],
+                "summary": "查询后台文章列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码，默认 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量，默认 20，最大 100",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "文章分页结果，包含草稿",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/posts.Page"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "分页参数无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "需要登录；写请求需在 X-CSRF-Token 请求头传入登录响应中的 csrfToken。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理文章"
+                ],
+                "summary": "创建文章草稿",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "文章内容",
+                        "name": "post",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/posts.PostInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "创建后的草稿",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/posts.Post"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求内容无效或封面图片不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "语言和链接标识已被占用",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "保存失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/posts/markdown": {
+            "post": {
+                "description": "需要登录和 CSRF 令牌。若 Markdown 含封面，先上传图片并传入 coverMediaId。",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Markdown 导入"
+                ],
+                "summary": "上传 Markdown 并保存为草稿",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Markdown 文件，最大 2 MiB",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "语言代码，默认 zh-CN",
+                        "name": "locale",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "已上传封面图片的 ID",
+                        "name": "coverMediaId",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "新建文章草稿",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/posts.Post"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Markdown 或封面信息无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "文章链接标识已被占用",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "413": {
+                        "description": "文件超过 2 MiB",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/posts/markdown/preview": {
+            "post": {
+                "description": "需要登录和 CSRF 令牌。上传 Markdown 文件并解析 frontmatter，不保存文章。",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Markdown 导入"
+                ],
+                "summary": "预览 Markdown 文章",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Markdown 文件，最大 2 MiB",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "语言代码，默认 zh-CN",
+                        "name": "locale",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "文章预览及封面路径",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": true
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Markdown 格式无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "413": {
+                        "description": "文件超过 2 MiB",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/posts/{id}": {
+            "get": {
+                "description": "需要先通过管理员登录接口登录。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理文章"
+                ],
+                "summary": "查询后台文章详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文章 UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "文章详情，包含草稿正文和版本号",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/posts.Post"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "文章 ID 格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "文章不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "需要登录和 CSRF 令牌。请求中的 version 必须与读取文章时一致，否则返回冲突。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理文章"
+                ],
+                "summary": "修改文章",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文章 UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "文章新内容及当前 version",
+                        "name": "post",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/posts.PostInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新后的文章",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/posts.Post"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求内容、文章 ID 或封面图片无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "文章不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "文章已被其他操作修改或链接标识冲突",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "保存失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/posts/{id}/publish": {
+            "post": {
+                "description": "需要登录和 CSRF 令牌。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理文章"
+                ],
+                "summary": "发布文章",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文章 UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "已发布文章",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/posts.Post"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "文章 ID 格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "文章不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "发布失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/posts/{id}/unpublish": {
+            "post": {
+                "description": "需要登录和 CSRF 令牌。撤回后文章不再出现在公开接口。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理文章"
+                ],
+                "summary": "撤回文章",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文章 UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "已撤回文章",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/posts.Post"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "文章 ID 格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "文章不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "撤回失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/session": {
+            "get": {
+                "description": "浏览器需携带登录接口设置的 yb_session Cookie。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理员会话"
+                ],
+                "summary": "查询管理员会话",
+                "responses": {
+                    "200": {
+                        "description": "当前会话已认证",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "boolean"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录或会话已过期",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/site-content": {
+            "get": {
+                "description": "需要先通过管理员登录接口登录；响应包含未公开条目和 version。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理站点内容"
+                ],
+                "summary": "查询后台站点内容",
+                "responses": {
+                    "200": {
+                        "description": "完整站点内容",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sitecontent.Content"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "需要登录和 CSRF 令牌。必须提交查询时取得的 version，旧版本会返回冲突。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理站点内容"
+                ],
+                "summary": "整体保存站点内容",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "完整站点内容及当前 version",
+                        "name": "content",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/sitecontent.Content"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "保存后的站点内容",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sitecontent.Content"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "站点内容无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "版本冲突或内容标识重复",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "保存失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/timeline": {
+            "put": {
+                "description": "需要登录和 CSRF 令牌；请求会替换全部经历条目。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理个人内容"
+                ],
+                "summary": "整体保存实习经历",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "包含 items 实习经历数组",
+                        "name": "timeline",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/personal.TimelineInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "保存后的时间线",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": true
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "时间线数据无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "保存失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/footprints": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "个人内容"
+                ],
+                "summary": "查询公开足迹",
+                "responses": {
+                    "200": {
+                        "description": "地点、停留记录和路线",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/personal.Footprints"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/health": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "服务状态"
+                ],
+                "summary": "检查 API 服务状态",
+                "responses": {
+                    "200": {
+                        "description": "服务正常",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/pages/{slug}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "页面"
+                ],
+                "summary": "查询公开独立页面",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "页面链接标识",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "语言代码，例如 zh-CN",
+                        "name": "locale",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "页面内容",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sitecontent.Page"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "语言代码无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "页面不存在或尚未发布",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/posts": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文章"
+                ],
+                "summary": "查询公开文章列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "语言代码，例如 zh-CN",
+                        "name": "locale",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类名称",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "标签名称",
+                        "name": "tag",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "标题、摘要或正文关键词",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码，默认 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量，默认 20，最大 100",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "文章分页结果",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/posts.Page"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "查询参数无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/posts/{slug}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文章"
+                ],
+                "summary": "按链接标识查询公开文章",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文章链接标识",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "语言代码，例如 zh-CN",
+                        "name": "locale",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "文章详情",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/posts.Post"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "语言代码无效",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "文章不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/site-content": {
+            "get": {
+                "description": "返回公开站点资料、导航、精选内容、公告、已审核友链及音乐信息。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "站点内容"
+                ],
+                "summary": "查询公开站点内容",
+                "responses": {
+                    "200": {
+                        "description": "公开站点内容",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sitecontent.Content"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/timeline": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "个人内容"
+                ],
+                "summary": "查询公开实习经历",
+                "responses": {
+                    "200": {
+                        "description": "包含 items 数组的时间线",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/apiresponse.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": true
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        },
+        "/uploads/{key}": {
+            "get": {
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "图片"
+                ],
+                "summary": "获取公开图片文件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "图片存储文件名",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "图片文件",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "图片不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "读取图片失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "apiresponse.Envelope": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {
+                    "type": "object"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "media.Item": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mimeType": {
+                    "type": "string"
+                },
+                "sizeBytes": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "width": {
+                    "type": "integer"
+                }
+            }
+        },
+        "personal.Footprints": {
+            "type": "object",
+            "properties": {
+                "locations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/personal.Location"
+                    }
+                },
+                "routes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/personal.Route"
+                    }
+                },
+                "stays": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/personal.Stay"
+                    }
+                }
+            }
+        },
+        "personal.Internship": {
+            "type": "object",
+            "properties": {
+                "company": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "iconColor": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isPresent": {
+                    "type": "boolean"
+                },
+                "position": {
+                    "type": "string"
+                },
+                "sortOrder": {
+                    "type": "integer"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "personal.Location": {
+            "type": "object",
+            "properties": {
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "lat": {
+                    "type": "number"
+                },
+                "lng": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sortOrder": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "personal.Route": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                },
+                "sortOrder": {
+                    "type": "integer"
+                },
+                "to": {
+                    "type": "string"
+                },
+                "transport": {
+                    "type": "string"
+                }
+            }
+        },
+        "personal.Stay": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isPresent": {
+                    "type": "boolean"
+                },
+                "locationId": {
+                    "type": "string"
+                },
+                "sortOrder": {
+                    "type": "integer"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "personal.TimelineInput": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/personal.Internship"
+                    }
+                }
+            }
+        },
+        "posts.Page": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/posts.Post"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "posts.Post": {
+            "type": "object",
+            "properties": {
+                "bodyMarkdown": {
+                    "type": "string"
+                },
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "coverMediaId": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "displayDate": {
+                    "type": "string"
+                },
+                "extra": {
+                    "type": "object"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "locale": {
+                    "type": "string"
+                },
+                "publishedAt": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "posts.PostInput": {
+            "type": "object",
+            "properties": {
+                "bodyMarkdown": {
+                    "type": "string"
+                },
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "coverMediaId": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "displayDate": {
+                    "type": "string"
+                },
+                "extra": {
+                    "type": "object"
+                },
+                "locale": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "sitecontent.Announcement": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "link": {
+                    "$ref": "#/definitions/sitecontent.AnnouncementLink"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "publishDate": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "sitecontent.AnnouncementLink": {
+            "type": "object",
+            "properties": {
+                "external": {
+                    "type": "boolean"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "sitecontent.BackgroundTrack": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "sitecontent.CategoryMapping": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "sitecontent.Content": {
+            "type": "object",
+            "properties": {
+                "announcements": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sitecontent.Announcement"
+                    }
+                },
+                "backgroundMusic": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sitecontent.BackgroundTrack"
+                    }
+                },
+                "categoryMappings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sitecontent.CategoryMapping"
+                    }
+                },
+                "featuredCategories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sitecontent.FeaturedCategory"
+                    }
+                },
+                "featuredSeries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sitecontent.FeaturedSeries"
+                    }
+                },
+                "friendLinks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sitecontent.FriendLink"
+                    }
+                },
+                "friendSettings": {
+                    "$ref": "#/definitions/sitecontent.FriendSettings"
+                },
+                "musicGroups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sitecontent.MusicGroup"
+                    }
+                },
+                "navigation": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sitecontent.NavigationItem"
+                    }
+                },
+                "profile": {
+                    "$ref": "#/definitions/sitecontent.Profile"
+                },
+                "socialLinks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sitecontent.SocialLink"
+                    }
+                },
+                "translations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sitecontent.Translation"
+                    }
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "sitecontent.FeaturedCategory": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "link": {
+                    "type": "string"
+                }
+            }
+        },
+        "sitecontent.FeaturedSeries": {
+            "type": "object",
+            "properties": {
+                "categoryName": {
+                    "type": "string"
+                },
+                "cover": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "fullName": {
+                    "type": "string"
+                },
+                "highlightOnHome": {
+                    "type": "boolean"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "links": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "sitecontent.FriendLink": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "site": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "sitecontent.FriendSettings": {
+            "type": "object",
+            "properties": {
+                "applyDesc": {
+                    "type": "string"
+                },
+                "applyTitle": {
+                    "type": "string"
+                },
+                "exampleYaml": {
+                    "type": "string"
+                },
+                "subtitle": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "sitecontent.MusicGroup": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "links": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sitecontent.MusicLink"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "sitecontent.MusicLink": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "sitecontent.NavigationItem": {
+            "type": "object",
+            "properties": {
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/sitecontent.NavigationItem"
+                    }
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nameKey": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "sitecontent.Page": {
+            "type": "object",
+            "properties": {
+                "bodyMarkdown": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "locale": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "sitecontent.Profile": {
+            "type": "object",
+            "properties": {
+                "alternate": {
+                    "type": "string"
+                },
+                "author": {
+                    "type": "string"
+                },
+                "avatar": {
+                    "type": "string"
+                },
+                "defaultOgImage": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "keywords": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "showLogo": {
+                    "type": "boolean"
+                },
+                "startYear": {
+                    "type": "integer"
+                },
+                "subtitle": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "sitecontent.SocialLink": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "sitecontent.Translation": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "entityKey": {
+                    "type": "string"
+                },
+                "entityType": {
+                    "type": "string"
+                },
+                "fullName": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "locale": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

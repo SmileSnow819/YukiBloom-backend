@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/SmileSnow819/YukiBloom-backend/internal/apiresponse"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,12 +17,18 @@ func TestHealthReturnsOK(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", response.Code)
 	}
-	var body map[string]string
+	var body struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    struct {
+			Status string `json:"status"`
+		} `json:"data"`
+	}
 	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body["status"] != "正常" {
-		t.Fatalf("健康检查状态应为中文，实际为 %q", body["status"])
+	if body.Code != 0 || body.Message != "成功" || body.Data.Status != "正常" {
+		t.Fatalf("健康检查响应结构错误：code=%d message=%q status=%q", body.Code, body.Message, body.Data.Status)
 	}
 }
 
@@ -30,6 +37,16 @@ func TestUnknownRouteReturnsNotFound(t *testing.T) {
 	NewRouter(nil, nil, nil, nil, nil, nil).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/missing", nil))
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", response.Code)
+	}
+	var body struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Code != apiresponse.CodeNotFound || body.Message == "" {
+		t.Fatalf("未知路由应返回统一错误结构，实际 code=%d message=%q", body.Code, body.Message)
 	}
 }
 

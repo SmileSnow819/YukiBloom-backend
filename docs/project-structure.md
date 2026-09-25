@@ -15,6 +15,9 @@ YukiBloom-backend/
 ├── Dockerfile
 ├── PRODUCT.md
 ├── README.md
+├── api-docs/
+│   ├── swagger.json
+│   └── swagger.yaml
 ├── cmd/
 │   ├── create-admin/
 │   │   ├── main.go
@@ -44,6 +47,8 @@ YukiBloom-backend/
 ├── go.mod
 ├── go.sum
 └── internal/
+    ├── apiresponse/
+    │   └── response.go
     ├── auth/
     │   ├── handler.go
     │   ├── handler_test.go
@@ -103,6 +108,8 @@ YukiBloom-backend/
 | `Dockerfile` | 构建并打包 Go API 服务和内容导入命令。 |
 | `PRODUCT.md` | 记录产品目标、当前阶段、已确定决策和暂缓范围。 |
 | `README.md` | 说明本地运行、接口、内容迁移和接口验证方法。 |
+| `api-docs/swagger.json` | 由 Swaggo 根据 Go 接口注释生成、可导入 Apifox 的 Swagger JSON 文档。 |
+| `api-docs/swagger.yaml` | 由 Swaggo 根据 Go 接口注释生成的 Swagger YAML 文档。 |
 | `cmd/create-admin/main.go` | 连接数据库并创建首个站点管理员账号。 |
 | `cmd/create-admin/main_test.go` | 验证管理员创建命令的参数和错误处理。 |
 | `cmd/import-personal/main.go` | 预检查或迁移旧 YAML 中的足迹、路线、图片和实习经历。 |
@@ -120,6 +127,7 @@ YukiBloom-backend/
 | `docs/superpowers/specs/2026-09-24-go-content-backend-design.md` | 记录网站内容后端的整体设计、迁移范围和阶段验收标准。 |
 | `go.mod` | 声明 Go 模块路径、语言版本和直接依赖。 |
 | `go.sum` | 锁定 Go 模块依赖及其校验值。 |
+| `internal/apiresponse/response.go` | 定义 JSON API 统一响应结构，以及成功、失败和中止响应的写入方法。 |
 | `internal/auth/handler.go` | 处理管理员登录、会话校验、CSRF 校验、退出和登录限流。 |
 | `internal/auth/handler_test.go` | 验证登录、会话保护、CSRF 校验和重复失败限流。 |
 | `internal/auth/password.go` | 使用安全哈希算法创建并验证管理员密码。 |
