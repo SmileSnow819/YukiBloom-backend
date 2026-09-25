@@ -32,6 +32,9 @@ type candidate struct {
 	coverFile string
 }
 
+// main 执行旧文章导入命令，并报告执行失败。
+// 参数：无。
+// 返回：无。
 func main() {
 	if err := run(context.Background(), os.Args[1:], os.Getenv, os.Stdout); err != nil {
 		log.Printf("导入未完成：%v", err)
@@ -39,6 +42,9 @@ func main() {
 	}
 }
 
+// run 检查旧 Markdown 文章及封面，并在指定 -apply 时写入数据库。
+// 参数：ctx 控制导入过程；args 是命令行参数；getenv 读取数据库等配置；output 接收检查结果。
+// 返回：error；参数、文章、图片、数据库或输出处理失败时返回错误。
 func run(ctx context.Context, args []string, getenv func(string) string, output io.Writer) error {
 	flags := flag.NewFlagSet("import-posts", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -179,6 +185,9 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 	return err
 }
 
+// markdownFiles 递归查找目录中的 Markdown 文件并按路径排序。
+// 参数：root 是待扫描的文章目录。
+// 返回：[]string 是排序后的文件路径；error 表示目录遍历失败。
 func markdownFiles(root string) ([]string, error) {
 	var paths []string
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
@@ -194,6 +203,9 @@ func markdownFiles(root string) ([]string, error) {
 	return paths, err
 }
 
+// resolveCover 将旧文章封面引用解析为资源目录中的本地路径。
+// 参数：assetRoot 是旧站点资源根目录；cover 是 frontmatter 中的封面地址。
+// 返回：string 是本地封面路径，外部地址或空地址返回空字符串；error 表示路径不安全。
 func resolveCover(assetRoot, cover string) (string, error) {
 	if cover == "" || strings.HasPrefix(cover, "http://") || strings.HasPrefix(cover, "https://") {
 		return "", nil

@@ -20,6 +20,9 @@ type MarkdownPost struct {
 	CoverPath string
 }
 
+// ParseMarkdown 将带 YAML frontmatter 的 Markdown 转为文章数据。
+// 参数：path 是原文件路径；locale 是文章语言；data 是文件内容。
+// 返回：解析后的 MarkdownPost；格式或字段无效时返回错误。
 func ParseMarkdown(path, locale string, data []byte) (MarkdownPost, error) {
 	data = bytes.TrimPrefix(data, []byte{0xef, 0xbb, 0xbf})
 	text := strings.ReplaceAll(string(data), "\r\n", "\n")
@@ -75,6 +78,9 @@ func ParseMarkdown(path, locale string, data []byte) (MarkdownPost, error) {
 	}, nil
 }
 
+// parseDate 将 frontmatter 中的日期文本解析为时间。
+// 参数：value 是待解析的日期字段值。
+// 返回：解析后的时间；值或格式无效时返回错误。
 func parseDate(value any) (time.Time, error) {
 	date, ok := value.(string)
 	if !ok {
@@ -98,11 +104,17 @@ func parseDate(value any) (time.Time, error) {
 	return time.Time{}, errors.New("支持 YYYY-MM-DD、YYYY-MM-DD HH:mm:ss 或带时区的 ISO 日期")
 }
 
+// stringValue 提取字段中的字符串值。
+// 参数：value 是待提取的字段值。
+// 返回：字符串值；类型不符时为空字符串。
 func stringValue(value any) string {
 	text, _ := value.(string)
 	return text
 }
 
+// stringSlice 递归提取字段中的字符串列表。
+// 参数：value 是字符串或嵌套列表字段。
+// 返回：按原顺序提取的字符串切片。
 func stringSlice(value any) []string {
 	var result []string
 	var appendValue func(any)

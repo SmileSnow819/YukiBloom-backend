@@ -28,6 +28,9 @@ type options struct {
 	replace      bool
 }
 
+// main 执行旧站点内容导入命令，并报告执行失败。
+// 参数：无。
+// 返回：无。
 func main() {
 	if err := run(context.Background(), os.Args[1:], os.Getenv, os.Stdout); err != nil {
 		log.Printf("站点内容导入未完成：%v", err)
@@ -35,6 +38,9 @@ func main() {
 	}
 }
 
+// run 预检查旧站点内容并在指定 -apply 时事务化导入数据库。
+// 参数：ctx 控制导入过程；args 是命令行参数；getenv 读取数据库等配置；output 接收检查结果。
+// 返回：error；参数、旧文件、图片、数据库或输出处理失败时返回错误。
 func run(ctx context.Context, args []string, getenv func(string) string, output io.Writer) error {
 	flags := flag.NewFlagSet("import-site", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -150,6 +156,9 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 	return err
 }
 
+// contentAssets 返回站点资料中所有可迁移图片地址的引用。
+// 参数：content 是待迁移的站点内容；返回的指针用于将旧地址替换为上传后的地址。
+// 返回：[]*string 是头像、精选图片和友链图片地址的引用列表。
 func contentAssets(content *sitecontent.Content) []*string {
 	refs := make([]*string, 0)
 	if content.Profile != nil {
@@ -167,6 +176,9 @@ func contentAssets(content *sitecontent.Content) []*string {
 	return refs
 }
 
+// localAsset 将旧站点内的图片 URL 转换为安全的本地文件路径。
+// 参数：root 是旧站点资源目录；reference 是内容中的图片地址。
+// 返回：string 是本地文件路径，非站内图片返回空字符串；error 表示路径不安全。
 func localAsset(root, reference string) (string, error) {
 	if !strings.HasPrefix(reference, "/img/") {
 		return "", nil
@@ -178,6 +190,9 @@ func localAsset(root, reference string) (string, error) {
 	return filepath.Join(root, relative), nil
 }
 
+// cleanupMedia 回收导入失败后未被内容引用的新图片。
+// 参数：ctx 控制数据库清理；store 是图片存储；ids 是本次导入生成的图片编号。
+// 返回：无。
 func cleanupMedia(ctx context.Context, store *media.Store, ids []string) {
 	for _, id := range ids {
 		_ = store.DeleteUnused(ctx, id)

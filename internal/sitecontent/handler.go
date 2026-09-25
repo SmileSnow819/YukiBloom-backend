@@ -22,8 +22,14 @@ var (
 
 type Handler struct{ store *Store }
 
+// 创建站点内容 HTTP 处理器。
+// 参数：store 是站点内容数据存储。
+// 返回：*Handler 是处理公开内容与管理端页面请求的处理器。
 func NewHandler(store *Store) *Handler { return &Handler{store: store} }
 
+// 读取公开站点内容，并过滤未启用或尚未生效的条目。
+// 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文。
+// 返回：无；结果通过 HTTP JSON 响应返回。
 func (h *Handler) PublicContent(c *gin.Context) {
 	content, err := h.store.Get(c.Request.Context())
 	if err != nil {
@@ -87,6 +93,9 @@ func (h *Handler) PublicContent(c *gin.Context) {
 	c.JSON(http.StatusOK, content)
 }
 
+// 读取包含管理字段的完整站点内容。
+// 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文。
+// 返回：无；结果通过 HTTP JSON 响应返回。
 func (h *Handler) AdminContent(c *gin.Context) {
 	content, err := h.store.Get(c.Request.Context())
 	if err != nil {
@@ -96,6 +105,9 @@ func (h *Handler) AdminContent(c *gin.Context) {
 	c.JSON(http.StatusOK, content)
 }
 
+// 校验并整体替换站点内容，处理版本冲突和重复标识。
+// 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文及 JSON 请求体。
+// 返回：无；操作结果通过 HTTP 状态码和 JSON 响应返回。
 func (h *Handler) ReplaceContent(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4<<20)
 	var content Content
@@ -123,6 +135,9 @@ func (h *Handler) ReplaceContent(c *gin.Context) {
 	h.AdminContent(c)
 }
 
+// 按语言和链接标识返回已发布的独立页面。
+// 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文，包含 locale 查询参数和 slug 路径参数。
+// 返回：无；页面或错误通过 HTTP JSON 响应返回。
 func (h *Handler) PublicPage(c *gin.Context) {
 	locale := c.Query("locale")
 	if !localePattern.MatchString(locale) {
@@ -141,6 +156,9 @@ func (h *Handler) PublicPage(c *gin.Context) {
 	c.JSON(http.StatusOK, page)
 }
 
+// 返回管理端可见的全部独立页面。
+// 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文。
+// 返回：无；页面列表通过 HTTP JSON 响应返回。
 func (h *Handler) AdminPages(c *gin.Context) {
 	pages, err := h.store.AdminPages(c.Request.Context())
 	if err != nil {
@@ -150,6 +168,9 @@ func (h *Handler) AdminPages(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": pages})
 }
 
+// 按 ID 返回管理端页面详情。
+// 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文，包含页面 ID 路径参数。
+// 返回：无；页面或错误通过 HTTP JSON 响应返回。
 func (h *Handler) AdminPageByID(c *gin.Context) {
 	if !pageIDPattern.MatchString(c.Param("id")) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "页面 ID 格式不正确"})
@@ -167,6 +188,9 @@ func (h *Handler) AdminPageByID(c *gin.Context) {
 	c.JSON(http.StatusOK, page)
 }
 
+// 创建或更新独立页面草稿，并校验请求中的版本和标识。
+// 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文及页面 JSON 请求体。
+// 返回：无；保存后的页面或错误通过 HTTP 响应返回。
 func (h *Handler) SavePage(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2<<20)
 	var page Page
@@ -215,10 +239,19 @@ func (h *Handler) SavePage(c *gin.Context) {
 	c.JSON(status, page)
 }
 
+// 将指定页面发布。
+// 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文，包含页面 ID。
+// 返回：无；更新后的页面或错误通过 HTTP 响应返回。
 func (h *Handler) PublishPage(c *gin.Context) { h.setPagePublished(c, true) }
 
+// 将指定页面取消发布并恢复为草稿。
+// 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文，包含页面 ID。
+// 返回：无；更新后的页面或错误通过 HTTP 响应返回。
 func (h *Handler) UnpublishPage(c *gin.Context) { h.setPagePublished(c, false) }
 
+// 设置页面的发布状态。
+// 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文；published 表示是否发布。
+// 返回：无；更新后的页面或错误通过 HTTP 响应返回。
 func (h *Handler) setPagePublished(c *gin.Context, published bool) {
 	if !pageIDPattern.MatchString(c.Param("id")) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "页面 ID 格式不正确"})
@@ -236,6 +269,9 @@ func (h *Handler) setPagePublished(c *gin.Context, published bool) {
 	c.JSON(http.StatusOK, page)
 }
 
+// 删除指定独立页面。
+// 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文，包含页面 ID。
+// 返回：无；结果通过 HTTP 状态码返回。
 func (h *Handler) DeletePage(c *gin.Context) {
 	if !pageIDPattern.MatchString(c.Param("id")) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "页面 ID 格式不正确"})
@@ -253,6 +289,9 @@ func (h *Handler) DeletePage(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// 校验独立页面的语言、标识、标题、正文长度和更新版本。
+// 参数：page 是待校验页面；update 表示是否为更新操作。
+// 返回：error 为 nil 表示有效，非 nil 时说明字段不符合要求。
 func ValidatePage(page Page, update bool) error {
 	if !localePattern.MatchString(page.Locale) || !slugPattern.MatchString(page.Slug) {
 		return errors.New("页面需要有效的语言代码和 slug")
@@ -269,6 +308,9 @@ func ValidatePage(page Page, update bool) error {
 	return nil
 }
 
+// 校验站点资料及各类公开内容字段。
+// 参数：content 是待校验的完整站点内容。
+// 返回：error 为 nil 表示有效，非 nil 时说明具体校验失败原因。
 func ValidateContent(content Content) error {
 	if content.Profile == nil {
 		return errors.New("必须填写站点资料")
@@ -358,6 +400,9 @@ func ValidateContent(content Content) error {
 	return nil
 }
 
+// 递归校验导航项目、链接及嵌套深度。
+// 参数：item 是当前导航项目；depth 是从根节点开始的嵌套层数。
+// 返回：error 为 nil 表示有效，非 nil 时说明导航字段不符合要求。
 func validateNavigation(item NavigationItem, depth int) error {
 	if depth > 4 || strings.TrimSpace(item.Name) == "" || len(item.Children) > 100 {
 		return errors.New("导航菜单名称无效或嵌套层级过深")
@@ -376,6 +421,9 @@ func validateNavigation(item NavigationItem, depth int) error {
 	return nil
 }
 
+// 判断字符串是否为允许的 HTTP、HTTPS 或可选 mailto 地址。
+// 参数：value 是待检查的地址；allowMailto 表示是否接受 mailto 协议。
+// 返回：bool 表示地址是否符合允许的格式。
 func validURL(value string, allowMailto bool) bool {
 	parsed, err := url.Parse(strings.TrimSpace(value))
 	if err != nil {
@@ -387,6 +435,9 @@ func validURL(value string, allowMailto bool) bool {
 	return parsed.Host != "" && (parsed.Scheme == "https" || parsed.Scheme == "http")
 }
 
+// 判断链接是否为安全的站内路径或外部网址。
+// 参数：value 是待检查的链接。
+// 返回：bool 表示链接是否有效。
 func validLink(value string) bool {
 	if strings.HasPrefix(value, "/") && !strings.HasPrefix(value, "//") && !strings.Contains(value, "..") && !strings.ContainsAny(value, `\\`) {
 		return true
@@ -394,6 +445,9 @@ func validLink(value string) bool {
 	return validURL(value, true)
 }
 
+// 判断图片资源是否为空、站内上传地址或有效外部网址。
+// 参数：value 是待检查的资源地址。
+// 返回：bool 表示资源地址是否有效。
 func validAsset(value string) bool {
 	if value == "" {
 		return true
@@ -407,6 +461,9 @@ func validAsset(value string) bool {
 	return validURL(value, false)
 }
 
+// 记录站点内容请求错误并返回统一的服务器错误响应。
+// 参数：c 是当前 HTTP 请求上下文；err 是需要记录的内部错误。
+// 返回：无；通过 HTTP 500 JSON 响应返回错误信息。
 func siteContentError(c *gin.Context, err error) {
 	log.Printf("站点内容请求失败：%v", err)
 	c.JSON(http.StatusInternalServerError, gin.H{"error": "站点内容暂时不可用，请稍后再试"})

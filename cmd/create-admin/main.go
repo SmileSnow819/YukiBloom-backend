@@ -16,6 +16,9 @@ import (
 	"github.com/SmileSnow819/YukiBloom-backend/internal/database"
 )
 
+// main 执行管理员创建命令，并在失败时输出原因后退出。
+// 参数：无。
+// 返回：无。
 func main() {
 	if err := run(context.Background(), os.Getenv, os.Stdout); err != nil {
 		log.Printf("创建管理员失败：%v", err)
@@ -23,6 +26,9 @@ func main() {
 	}
 }
 
+// run 校验管理员凭据、连接数据库并创建管理员账号。
+// 参数：ctx 控制启动过程的取消；getenv 读取环境变量；output 接收成功提示。
+// 返回：error；配置、数据库、迁移、写入或输出失败时返回错误。
 func run(ctx context.Context, getenv func(string) string, output io.Writer) error {
 	username := strings.TrimSpace(getenv("ADMIN_USERNAME"))
 	password := getenv("ADMIN_PASSWORD")

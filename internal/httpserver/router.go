@@ -13,6 +13,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// NewRouter 注册健康检查、公开内容、管理员操作和图片访问路由。
+// 参数：authHandler 管理登录和会话；postHandler 管理文章；mediaHandler 管理图片；importerHandler 处理 Markdown 导入；personalHandler 管理足迹和实习经历；siteHandler 管理站点内容与页面。
+// 返回：配置完成的 Gin 路由引擎。
 func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandler *media.Handler, importerHandler *importer.Handler, personalHandler *personal.Handler, siteHandler *sitecontent.Handler) *gin.Engine {
 	router := gin.New()
 	// 不信任客户端提交的代理请求头，避免伪造 IP 绕过登录限流。

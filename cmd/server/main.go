@@ -23,6 +23,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// main 启动 API 服务，并在收到系统信号时触发平滑关闭。
+// 参数：无。
+// 返回：无。
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -32,6 +35,9 @@ func main() {
 	}
 }
 
+// run 加载配置、初始化数据库和路由，并运行 HTTP 服务直到退出。
+// 参数：ctx 接收系统关闭信号；getenv 读取服务环境变量。
+// 返回：error；配置、数据库迁移、监听或平滑关闭失败时返回错误。
 func run(ctx context.Context, getenv func(string) string) error {
 	gin.SetMode(gin.ReleaseMode)
 	cfg, err := config.Load(getenv)

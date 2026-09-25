@@ -15,6 +15,9 @@ import (
 //go:embed migrations/*.sql
 var migrationFS embed.FS
 
+// migrationNames 列出嵌入的 SQL 迁移文件并按名称排序。
+// 参数：无。
+// 返回：排序后的文件名列表；列举失败时返回错误。
 func migrationNames() ([]string, error) {
 	paths, err := fs.Glob(migrationFS, "migrations/*.sql")
 	if err != nil {
@@ -28,6 +31,9 @@ func migrationNames() ([]string, error) {
 	return names, nil
 }
 
+// Migrate 创建迁移记录表并依次执行未应用的迁移。
+// 参数：ctx 控制数据库操作；pool 是数据库连接池。
+// 返回：迁移过程中的错误，成功时为 nil。
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	_, err := pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version text PRIMARY KEY,
@@ -53,6 +59,9 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
+// runMigration 在事务中检查并执行指定版本的迁移。
+// 参数：ctx 控制数据库操作；pool 是数据库连接池；version 是迁移版本名；sql 是待执行的 SQL 内容。
+// 返回：事务或 SQL 执行错误，已应用或成功时为 nil。
 func runMigration(ctx context.Context, pool *pgxpool.Pool, version, sql string) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {

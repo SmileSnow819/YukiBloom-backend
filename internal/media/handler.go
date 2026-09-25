@@ -15,8 +15,14 @@ var mediaIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-
 
 type Handler struct{ store *Store }
 
+// NewHandler 创建图片接口处理器。
+// 参数：store 是图片存储。
+// 返回：使用该存储的 Handler。
 func NewHandler(store *Store) *Handler { return &Handler{store: store} }
 
+// Upload 接收、校验并保存上传的图片。
+// 参数：h 是图片接口处理器；c 是请求上下文，用于读取上传文件和写入响应。
+// 返回：无。
 func (h *Handler) Upload(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, MaxUploadBytes+(64<<10))
 	file, _, err := c.Request.FormFile("file")
@@ -47,6 +53,9 @@ func (h *Handler) Upload(c *gin.Context) {
 	c.JSON(http.StatusCreated, item)
 }
 
+// List 返回分页的图片列表。
+// 参数：h 是图片接口处理器；c 是请求上下文，用于读取分页参数和写入响应。
+// 返回：无。
 func (h *Handler) List(c *gin.Context) {
 	page, limit, ok := parsePage(c)
 	if !ok {
@@ -61,6 +70,9 @@ func (h *Handler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items, "page": page, "limit": limit, "total": total})
 }
 
+// Delete 删除未被引用的图片。
+// 参数：h 是图片接口处理器；c 是请求上下文，用于读取图片 ID 和写入响应。
+// 返回：无。
 func (h *Handler) Delete(c *gin.Context) {
 	id := c.Param("id")
 	if !mediaIDPattern.MatchString(id) {
@@ -81,6 +93,9 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 }
 
+// PublicFile 根据存储键向客户端提供图片文件。
+// 参数：h 是图片接口处理器；c 是请求上下文，用于读取存储键和写入文件响应。
+// 返回：无。
 func (h *Handler) PublicFile(c *gin.Context) {
 	path, mimeType, err := h.store.PublicFile(c.Request.Context(), c.Param("key"))
 	if errors.Is(err, ErrNotFound) {
@@ -109,6 +124,9 @@ func (h *Handler) PublicFile(c *gin.Context) {
 	http.ServeContent(c.Writer, c.Request, c.Param("key"), info.ModTime(), file)
 }
 
+// parsePage 读取并校验图片列表的分页参数。
+// 参数：c 是请求上下文，用于读取查询参数和报告错误。
+// 返回：页码、每页数量，以及参数是否有效。
 func parsePage(c *gin.Context) (int, int, bool) {
 	page, limit := 1, 20
 	var err error

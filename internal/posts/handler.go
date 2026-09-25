@@ -21,8 +21,14 @@ var (
 
 type Handler struct{ store *Store }
 
+// NewHandler 创建使用文章存储的 HTTP 处理器。
+// 参数：store 是文章数据存储。
+// 返回：配置好的 Handler。
 func NewHandler(store *Store) *Handler { return &Handler{store: store} }
 
+// PublicList 校验筛选和分页参数，并返回已发布文章列表。
+// 参数：h 是文章处理器；c 是当前 HTTP 请求上下文。
+// 返回：无；文章分页结果或中文错误写入 HTTP 响应。
 func (h *Handler) PublicList(c *gin.Context) {
 	if locale := c.Query("locale"); locale != "" && !validLocale.MatchString(locale) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "locale 格式不正确"})
@@ -49,6 +55,9 @@ func (h *Handler) PublicList(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// PublicBySlug 按语言和 slug 返回一篇已发布文章。
+// 参数：h 是文章处理器；c 提供语言查询参数和文章 slug。
+// 返回：无；文章内容或中文错误写入 HTTP 响应。
 func (h *Handler) PublicBySlug(c *gin.Context) {
 	locale := c.Query("locale")
 	if !validLocale.MatchString(locale) {
@@ -67,6 +76,9 @@ func (h *Handler) PublicBySlug(c *gin.Context) {
 	c.JSON(http.StatusOK, post)
 }
 
+// AdminList 返回后台使用的文章分页列表，包含草稿。
+// 参数：h 是文章处理器；c 提供分页参数并接收 HTTP 响应。
+// 返回：无；文章分页结果或中文错误写入 HTTP 响应。
 func (h *Handler) AdminList(c *gin.Context) {
 	page, limit, ok := readPage(c)
 	if !ok {
@@ -80,6 +92,9 @@ func (h *Handler) AdminList(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// AdminByID 按文章编号读取后台编辑所需的完整记录。
+// 参数：h 是文章处理器；c 提供文章编号并接收 HTTP 响应。
+// 返回：无；文章记录或中文错误写入 HTTP 响应。
 func (h *Handler) AdminByID(c *gin.Context) {
 	if !validUUID.MatchString(c.Param("id")) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "文章 ID 格式不正确"})
@@ -97,6 +112,9 @@ func (h *Handler) AdminByID(c *gin.Context) {
 	c.JSON(http.StatusOK, post)
 }
 
+// Create 校验并保存一篇新的文章草稿。
+// 参数：h 是文章处理器；c 包含文章 JSON 请求体并接收 HTTP 响应。
+// 返回：无；新文章、冲突或中文错误写入 HTTP 响应。
 func (h *Handler) Create(c *gin.Context) {
 	var input PostInput
 	if !bindPost(c, &input, false) {
@@ -122,6 +140,9 @@ func (h *Handler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, post)
 }
 
+// Update 使用版本号保护并保存文章修改。
+// 参数：h 是文章处理器；c 提供文章编号和包含 version 的 JSON 请求体。
+// 返回：无；更新后的文章、冲突或中文错误写入 HTTP 响应。
 func (h *Handler) Update(c *gin.Context) {
 	if !validUUID.MatchString(c.Param("id")) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "文章 ID 格式不正确"})
@@ -155,10 +176,19 @@ func (h *Handler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, post)
 }
 
+// Publish 将指定文章发布到公开接口。
+// 参数：h 是文章处理器；c 提供文章编号并接收 HTTP 响应。
+// 返回：无；发布结果或中文错误写入 HTTP 响应。
 func (h *Handler) Publish(c *gin.Context) { h.setPublished(c, true) }
 
+// Unpublish 撤回指定文章，使其不再出现在公开接口。
+// 参数：h 是文章处理器；c 提供文章编号并接收 HTTP 响应。
+// 返回：无；撤回结果或中文错误写入 HTTP 响应。
 func (h *Handler) Unpublish(c *gin.Context) { h.setPublished(c, false) }
 
+// setPublished 按 published 参数发布或撤回文章。
+// 参数：h 是文章处理器；c 提供文章编号并接收 HTTP 响应；published 为 true 时发布，为 false 时撤回。
+// 返回：无；操作结果或中文错误写入 HTTP 响应。
 func (h *Handler) setPublished(c *gin.Context, published bool) {
 	if !validUUID.MatchString(c.Param("id")) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "文章 ID 格式不正确"})
@@ -176,6 +206,9 @@ func (h *Handler) setPublished(c *gin.Context, published bool) {
 	c.JSON(http.StatusOK, post)
 }
 
+// bindPost 限制请求大小并将 JSON 文章内容解码到输入结构。
+// 参数：c 是当前 HTTP 请求上下文；input 接收解码后的文章；update 表示是否要求有效版本号。
+// 返回：bool 表示请求体是否有效并成功解码。
 func bindPost(c *gin.Context, input *PostInput, update bool) bool {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2<<20)
 	if err := c.ShouldBindJSON(input); err != nil {
@@ -194,6 +227,9 @@ func bindPost(c *gin.Context, input *PostInput, update bool) bool {
 	return true
 }
 
+// ValidateInput 检查文章语言、slug、标题、分类、标签和封面编号。
+// 参数：input 是待创建或更新的文章内容。
+// 返回：error；字段有效时返回 nil，否则返回具体的中文校验错误。
 func ValidateInput(input PostInput) error {
 	if !validLocale.MatchString(input.Locale) {
 		return errors.New("locale 格式不正确")
@@ -227,6 +263,9 @@ func ValidateInput(input PostInput) error {
 	return nil
 }
 
+// readPage 读取并校验请求中的 page 和 limit 分页参数。
+// 参数：c 是包含分页查询参数的 HTTP 上下文。
+// 返回：int 是页码；int 是每页数量；bool 表示两项参数是否有效。
 func readPage(c *gin.Context) (int, int, bool) {
 	page, limit := 1, 20
 	var err error
@@ -247,6 +286,9 @@ func readPage(c *gin.Context) (int, int, bool) {
 	return page, limit, true
 }
 
+// internalError 记录文章处理的内部错误并返回统一错误响应。
+// 参数：c 是当前 HTTP 请求上下文；err 是仅供服务日志使用的内部错误。
+// 返回：无；通用错误响应写入 HTTP 响应。
 func internalError(c *gin.Context, err error) {
 	// 详细错误只写服务日志，接口不返回数据库或 SQL 信息。
 	log.Printf("文章请求处理失败：%v", err)

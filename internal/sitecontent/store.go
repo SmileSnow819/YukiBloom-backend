@@ -18,8 +18,14 @@ var (
 
 type Store struct{ pool *pgxpool.Pool }
 
+// 创建站点内容数据存储。
+// 参数：pool 是 PostgreSQL 连接池。
+// 返回：*Store 是可读取和更新站点内容的存储对象。
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
+// 读取数据库中的完整站点内容及各类关联条目。
+// 参数：s 是站点内容存储；ctx 控制数据库查询。
+// 返回：Content 是站点配置和内容集合；error 表示数据库或数据解析失败。
 func (s *Store) Get(ctx context.Context) (Content, error) {
 	content := emptyContent()
 	if err := s.pool.QueryRow(ctx, `SELECT version FROM site_content_revision WHERE singleton=true`).Scan(&content.Version); err != nil {
@@ -215,10 +221,16 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 	return content, nil
 }
 
+// 创建各内容列表均初始化为空切片的站点内容对象。
+// 参数：无。
+// 返回：Content 是可安全追加内容的空站点内容对象。
 func emptyContent() Content {
 	return Content{SocialLinks: []SocialLink{}, CategoryMappings: []CategoryMapping{}, FeaturedCategories: []FeaturedCategory{}, FeaturedSeries: []FeaturedSeries{}, Navigation: []NavigationItem{}, Announcements: []Announcement{}, FriendLinks: []FriendLink{}, Translations: []Translation{}, MusicGroups: []MusicGroup{}, BackgroundMusic: []BackgroundTrack{}}
 }
 
+// 读取导航数据并按父子关系组装成树。
+// 参数：s 是站点内容存储；ctx 控制数据库查询。
+// 返回：[]NavigationItem 是导航树；error 表示数据库读取失败。
 func (s *Store) readNavigation(ctx context.Context) ([]NavigationItem, error) {
 	rows, err := s.pool.Query(ctx, `SELECT id,parent_id,name,name_key,path,icon,sort_order FROM site_navigation ORDER BY sort_order,id`)
 	if err != nil {
@@ -265,6 +277,9 @@ func (s *Store) readNavigation(ctx context.Context) ([]NavigationItem, error) {
 	return build(""), nil
 }
 
+// 读取指定歌单分组内的链接。
+// 参数：s 是站点内容存储；ctx 控制数据库查询；groupID 是歌单分组 ID。
+// 返回：[]MusicLink 是分组链接；error 表示数据库读取或扫描失败。
 func (s *Store) readMusicLinks(ctx context.Context, groupID string) ([]MusicLink, error) {
 	rows, err := s.pool.Query(ctx, `SELECT id,title,url FROM music_links WHERE group_id=$1 ORDER BY sort_order,id`, groupID)
 	if err != nil {
@@ -282,6 +297,9 @@ func (s *Store) readMusicLinks(ctx context.Context, groupID string) ([]MusicLink
 	return links, rows.Err()
 }
 
+// 在单个事务中整体替换站点内容，并检查版本冲突。
+// 参数：s 是站点内容存储；ctx 控制事务；content 是需要保存的站点内容。
+// 返回：error 表示事务失败或内容版本冲突。
 func (s *Store) Replace(ctx context.Context, content Content) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -297,6 +315,9 @@ func (s *Store) Replace(ctx context.Context, content Content) error {
 	return tx.Commit(ctx)
 }
 
+// 在已有事务中替换站点配置及所有关联内容。
+// 参数：ctx 控制数据库操作；tx 是调用方开启的事务；content 是需要写入的内容。
+// 返回：error 表示版本冲突、序列化或数据库写入失败。
 func replaceWithinTx(ctx context.Context, tx pgx.Tx, content Content) error {
 	result, err := tx.Exec(ctx, `UPDATE site_content_revision SET version=version+1 WHERE singleton=true AND version=$1`, content.Version)
 	if err != nil {
@@ -391,7 +412,9 @@ func replaceWithinTx(ctx context.Context, tx pgx.Tx, content Content) error {
 	return nil
 }
 
-// Import saves the site content and standalone pages as one database change.
+// 将站点内容和独立页面作为一个事务导入数据库。
+// 参数：s 是站点内容存储；ctx 控制事务；content 是站点内容；pages 是待导入页面。
+// 返回：error 表示事务或任一内容写入失败。
 func (s *Store) Import(ctx context.Context, content Content, pages []Page) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -417,6 +440,9 @@ func (s *Store) Import(ctx context.Context, content Content, pages []Page) error
 	return tx.Commit(ctx)
 }
 
+// 递归写入导航节点及其子节点。
+// 参数：ctx 控制数据库操作；tx 是当前事务；item 是导航节点；parent 是父节点 ID；order 是同级排序值；depth 是嵌套层数。
+// 返回：error 表示超过嵌套上限或数据库写入失败。
 func insertNavigation(ctx context.Context, tx pgx.Tx, item NavigationItem, parent string, order, depth int) error {
 	if depth > 4 {
 		return errors.New("导航菜单最多支持四层嵌套")
@@ -434,6 +460,9 @@ func insertNavigation(ctx context.Context, tx pgx.Tx, item NavigationItem, paren
 	return nil
 }
 
+// 读取指定语言下已发布的页面。
+// 参数：s 是站点内容存储；ctx 控制查询；locale 是语言代码；slug 是页面链接标识。
+// 返回：Page 是匹配页面；error 表示页面不存在或查询失败。
 func (s *Store) PublicPage(ctx context.Context, locale, slug string) (Page, error) {
 	var page Page
 	err := s.pool.QueryRow(ctx, `SELECT id,locale,slug,title,description,body_markdown,status,version,updated_at FROM content_pages WHERE locale=$1 AND slug=$2 AND status='published'`, locale, slug).Scan(
@@ -444,6 +473,9 @@ func (s *Store) PublicPage(ctx context.Context, locale, slug string) (Page, erro
 	return page, err
 }
 
+// 按更新时间读取管理端的全部页面。
+// 参数：s 是站点内容存储；ctx 控制查询。
+// 返回：[]Page 是页面列表；error 表示数据库读取或扫描失败。
 func (s *Store) AdminPages(ctx context.Context) ([]Page, error) {
 	rows, err := s.pool.Query(ctx, `SELECT id,locale,slug,title,description,body_markdown,status,version,updated_at FROM content_pages ORDER BY updated_at DESC,locale,slug`)
 	if err != nil {
@@ -461,6 +493,9 @@ func (s *Store) AdminPages(ctx context.Context) ([]Page, error) {
 	return pages, rows.Err()
 }
 
+// 创建页面或按版本号更新页面，防止覆盖并发修改。
+// 参数：s 是站点内容存储；ctx 控制事务；page 是页面内容和当前版本；published 决定新页面是否直接发布。
+// 返回：Page 是保存后的页面；error 表示页面不存在、版本或标识冲突及数据库失败。
 func (s *Store) SavePage(ctx context.Context, page Page, published bool) (Page, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -507,6 +542,9 @@ func (s *Store) SavePage(ctx context.Context, page Page, published bool) (Page, 
 	return page, nil
 }
 
+// 按 ID 查询管理端页面，包含草稿。
+// 参数：s 是站点内容存储；ctx 控制查询；id 是页面 ID。
+// 返回：Page 是匹配页面；error 表示页面不存在或数据库读取失败。
 func (s *Store) AdminPageByID(ctx context.Context, id string) (Page, error) {
 	var page Page
 	err := s.pool.QueryRow(ctx, `SELECT id,locale,slug,title,description,body_markdown,status,version,updated_at FROM content_pages WHERE id=$1`, id).Scan(
@@ -517,6 +555,9 @@ func (s *Store) AdminPageByID(ctx context.Context, id string) (Page, error) {
 	return page, err
 }
 
+// 设置页面的发布状态并更新版本和修改时间。
+// 参数：s 是站点内容存储；ctx 控制查询；id 是页面 ID；published 表示是否发布。
+// 返回：Page 是更新后的页面；error 表示页面不存在或数据库写入失败。
 func (s *Store) SetPagePublished(ctx context.Context, id string, published bool) (Page, error) {
 	status := "draft"
 	if published {
@@ -533,6 +574,9 @@ func (s *Store) SetPagePublished(ctx context.Context, id string, published bool)
 	return page, err
 }
 
+// 按 ID 删除独立页面。
+// 参数：s 是站点内容存储；ctx 控制数据库操作；id 是页面 ID。
+// 返回：error 表示数据库删除失败或页面不存在。
 func (s *Store) DeletePage(ctx context.Context, id string) error {
 	result, err := s.pool.Exec(ctx, "DELETE FROM content_pages WHERE id=$1", id)
 	if err != nil {

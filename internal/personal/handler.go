@@ -19,8 +19,14 @@ var (
 
 type Handler struct{ store *Store }
 
+// NewHandler 创建使用足迹与时间线存储的 HTTP 处理器。
+// 参数：store 是个人内容的数据存储。
+// 返回：配置好的 Handler。
 func NewHandler(store *Store) *Handler { return &Handler{store: store} }
 
+// GetFootprints 查询公开足迹并返回地点、停留和路线数据。
+// 参数：h 是个人内容处理器；c 是当前 HTTP 请求上下文。
+// 返回：无；查询结果或中文错误写入 HTTP 响应。
 func (h *Handler) GetFootprints(c *gin.Context) {
 	data, err := h.store.Footprints(c.Request.Context())
 	if err != nil {
@@ -30,6 +36,9 @@ func (h *Handler) GetFootprints(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
+// ReplaceFootprints 校验管理员提交的足迹并整体保存。
+// 参数：h 是个人内容处理器；c 是包含 JSON 请求体的 HTTP 上下文。
+// 返回：无；保存后的内容或中文错误写入 HTTP 响应。
 func (h *Handler) ReplaceFootprints(c *gin.Context) {
 	var data Footprints
 	if !bindContent(c, &data) {
@@ -46,6 +55,9 @@ func (h *Handler) ReplaceFootprints(c *gin.Context) {
 	h.GetFootprints(c)
 }
 
+// GetTimeline 查询并返回公开的实习经历时间线。
+// 参数：h 是个人内容处理器；c 是当前 HTTP 请求上下文。
+// 返回：无；时间线或中文错误写入 HTTP 响应。
 func (h *Handler) GetTimeline(c *gin.Context) {
 	items, err := h.store.Timeline(c.Request.Context())
 	if err != nil {
@@ -55,6 +67,9 @@ func (h *Handler) GetTimeline(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
+// ReplaceTimeline 校验管理员提交的经历列表并整体保存。
+// 参数：h 是个人内容处理器；c 是包含 JSON 请求体的 HTTP 上下文。
+// 返回：无；保存后的时间线或中文错误写入 HTTP 响应。
 func (h *Handler) ReplaceTimeline(c *gin.Context) {
 	var body struct {
 		Items []Internship `json:"items"`
@@ -73,6 +88,9 @@ func (h *Handler) ReplaceTimeline(c *gin.Context) {
 	h.GetTimeline(c)
 }
 
+// bindContent 限制请求体大小并将 JSON 解码到目标结构。
+// 参数：c 是当前 HTTP 请求上下文；output 是接收解码结果的指针。
+// 返回：bool 表示请求体是否成功读取和解码。
 func bindContent(c *gin.Context, output any) bool {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4<<20)
 	if err := c.ShouldBindJSON(output); err != nil {
@@ -82,6 +100,9 @@ func bindContent(c *gin.Context, output any) bool {
 	return true
 }
 
+// ValidateFootprints 检查足迹数量、字段、日期、坐标和关联地点。
+// 参数：data 是待保存的完整足迹数据。
+// 返回：error；数据有效时返回 nil，否则返回具体的中文校验错误。
 func ValidateFootprints(data Footprints) error {
 	if len(data.Locations) > 500 || len(data.Stays) > 1000 || len(data.Routes) > 2000 {
 		return errors.New("地点、停留记录或路线数量超过允许上限")
@@ -148,6 +169,9 @@ func ValidateFootprints(data Footprints) error {
 	return nil
 }
 
+// ValidateTimeline 检查实习经历的日期、必填字段和当前状态。
+// 参数：items 是待保存的实习经历列表。
+// 返回：error；数据有效时返回 nil，否则返回具体的中文校验错误。
 func ValidateTimeline(items []Internship) error {
 	if len(items) > 200 {
 		return errors.New("实习经历数量不能超过 200 条")
@@ -173,6 +197,9 @@ func ValidateTimeline(items []Internship) error {
 	return nil
 }
 
+// validImageReference 判断路线图片是否为允许的站内地址或 HTTPS 链接。
+// 参数：value 是待检查的图片引用。
+// 返回：bool 表示图片引用是否有效。
 func validImageReference(value string) bool {
 	if strings.ContainsAny(value, `\\`) || strings.Contains(value, "..") {
 		return false
@@ -183,6 +210,9 @@ func validImageReference(value string) bool {
 	return strings.HasPrefix(value, "https://")
 }
 
+// personalError 记录个人内容处理错误并返回通用中文错误响应。
+// 参数：c 是当前 HTTP 请求上下文；err 是仅写入服务日志的内部错误。
+// 返回：无；错误响应写入 HTTP 响应。
 func personalError(c *gin.Context, err error) {
 	log.Printf("个人内容请求失败：%v", err)
 	c.JSON(http.StatusInternalServerError, gin.H{"error": "读取或保存个人内容失败，请稍后再试"})

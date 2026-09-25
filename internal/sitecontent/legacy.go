@@ -48,6 +48,9 @@ type legacyTranslation struct {
 	} `yaml:"featuredCategories"`
 }
 
+// 读取并校验旧版 YAML 配置及关于我、歌单页面，转换为数据库导入模型。
+// 参数：sitePath、translationsPath、aboutPath、musicPath 分别是站点配置、翻译、关于我和歌单文件路径。
+// 返回：Content 是站点内容；[]Page 是转换后的独立页面；error 表示读取、解析或校验失败。
 func LoadLegacy(sitePath, translationsPath, aboutPath, musicPath string) (Content, []Page, error) {
 	var legacy legacySite
 	if err := readLegacyYAML(sitePath, &legacy); err != nil {
@@ -152,6 +155,9 @@ func LoadLegacy(sitePath, translationsPath, aboutPath, musicPath string) (Conten
 	return content, pages, nil
 }
 
+// 将旧版关于我 Astro 页面正文转换为独立页面记录。
+// 参数：path 是旧版关于我页面文件路径。
+// 返回：Page 是转换后的关于我页面；error 表示读取或格式识别失败。
 func parseLegacyAbout(path string) (Page, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -168,6 +174,9 @@ func parseLegacyAbout(path string) (Page, error) {
 	return Page{Locale: "zh-CN", Slug: "about", Title: "关于我", Description: "关于我？", BodyMarkdown: body}, nil
 }
 
+// 解析旧版歌单 Astro 页面，提取歌单分组和页面元信息。
+// 参数：path 是旧版歌单页面文件路径。
+// 返回：[]MusicGroup 是歌单分组；Page 是页面元信息；error 表示读取或解析失败。
 func parseLegacyMusic(path string) ([]MusicGroup, Page, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -212,6 +221,9 @@ func parseLegacyMusic(path string) ([]MusicGroup, Page, error) {
 	return output, Page{Locale: "zh-CN", Slug: "music", Title: meta.Title, Description: meta.Description, BodyMarkdown: ""}, nil
 }
 
+// 读取 YAML 文件并将内容解析到目标值。
+// 参数：path 是 YAML 文件路径；value 是接收解析结果的指针。
+// 返回：error 表示文件读取或 YAML 解析失败。
 func readLegacyYAML(path string, value any) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -220,6 +232,9 @@ func readLegacyYAML(path string, value any) error {
 	return yaml.Unmarshal(data, value)
 }
 
+// 将通用 YAML 映射重新编码并解析到指定结构。
+// 参数：raw 是待转换的键值映射；value 是接收解析结果的指针。
+// 返回：error 表示 YAML 编码或解析失败。
 func remarshalYAML(raw map[string]any, value any) error {
 	data, err := yaml.Marshal(raw)
 	if err != nil {
@@ -228,6 +243,9 @@ func remarshalYAML(raw map[string]any, value any) error {
 	return yaml.Unmarshal(data, value)
 }
 
+// 按字典序返回映射中的全部键。
+// 参数：values 是需要读取键的映射。
+// 返回：[]string 是排序后的键列表。
 func sortedKeys[V any](values map[string]V) []string {
 	keys := make([]string, 0, len(values))
 	for key := range values {

@@ -14,6 +14,9 @@ type Config struct {
 	UploadDir    string
 }
 
+// Load 从环境变量读取并校验服务配置。
+// 参数：getenv 是按变量名读取环境变量的函数。
+// 返回：校验后的 Config；配置无效时返回错误。
 func Load(getenv func(string) string) (Config, error) {
 	databaseURL := strings.TrimSpace(getenv("DATABASE_URL"))
 	if databaseURL == "" {

@@ -48,8 +48,14 @@ type Store struct {
 	root string
 }
 
+// NewStore 创建使用指定目录的图片存储。
+// 参数：pool 是数据库连接池；root 是图片文件根目录。
+// 返回：配置好的 Store。
 func NewStore(pool *pgxpool.Pool, root string) *Store { return &Store{pool: pool, root: root} }
 
+// Save 校验图片、保存文件并登记图片信息。
+// 参数：s 是图片存储；ctx 控制数据库操作；source 是图片数据流。
+// 返回：已保存的 Item；读取、校验或保存失败时返回错误。
 func (s *Store) Save(ctx context.Context, source io.Reader) (Item, error) {
 	data, err := io.ReadAll(io.LimitReader(source, MaxUploadBytes+1))
 	if err != nil {
@@ -113,6 +119,9 @@ type ImageInfo struct {
 	Height    int
 }
 
+// Validate 检查图片大小、格式及像素尺寸。
+// 参数：data 是待校验的图片字节。
+// 返回：图片格式和尺寸信息；校验失败时返回错误。
 func Validate(data []byte) (ImageInfo, error) {
 	if len(data) > MaxUploadBytes {
 		return ImageInfo{}, ErrTooLarge
@@ -135,6 +144,9 @@ func Validate(data []byte) (ImageInfo, error) {
 	return ImageInfo{MIMEType: mimeType, Extension: extension, Width: config.Width, Height: config.Height}, nil
 }
 
+// List 分页查询图片记录及总数。
+// 参数：s 是图片存储；ctx 控制数据库操作；page 是页码；limit 是每页数量。
+// 返回：当前页的 Item 列表、记录总数，以及查询错误。
 func (s *Store) List(ctx context.Context, page, limit int) ([]Item, int64, error) {
 	var total int64
 	if err := s.pool.QueryRow(ctx, "SELECT count(*) FROM media").Scan(&total); err != nil {
@@ -159,6 +171,9 @@ func (s *Store) List(ctx context.Context, page, limit int) ([]Item, int64, error
 	return items, total, rows.Err()
 }
 
+// PublicFile 根据存储键查询可公开访问的图片文件信息。
+// 参数：s 是图片存储；ctx 控制数据库操作；key 是图片存储键。
+// 返回：文件路径、MIME 类型，以及键无效或查询失败时的错误。
 func (s *Store) PublicFile(ctx context.Context, key string) (string, string, error) {
 	if !validStorageKey(key) {
 		return "", "", ErrNotFound
@@ -171,6 +186,9 @@ func (s *Store) PublicFile(ctx context.Context, key string) (string, string, err
 	return filepath.Join(s.root, key), mimeType, err
 }
 
+// DeleteUnused 删除未被内容引用的图片记录及文件。
+// 参数：s 是图片存储；ctx 控制数据库操作；id 是待删除的图片 ID。
+// 返回：图片不存在、仍被引用或删除失败时的错误，成功时为 nil。
 func (s *Store) DeleteUnused(ctx context.Context, id string) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -220,6 +238,9 @@ func (s *Store) DeleteUnused(ctx context.Context, id string) error {
 	return nil
 }
 
+// imageType 将解码格式映射为图片 MIME 类型和扩展名。
+// 参数：format 是图片解码格式。
+// 返回：MIME 类型、文件扩展名，以及格式是否受支持。
 func imageType(format string) (string, string, bool) {
 	switch format {
 	case "jpeg":
@@ -233,6 +254,9 @@ func imageType(format string) (string, string, bool) {
 	}
 }
 
+// storageKey 生成带扩展名的随机图片存储键。
+// 参数：extension 是图片文件扩展名。
+// 返回：随机存储键；随机数读取失败时返回错误。
 func storageKey(extension string) (string, error) {
 	random := make([]byte, 16)
 	if _, err := rand.Read(random); err != nil {
@@ -241,6 +265,9 @@ func storageKey(extension string) (string, error) {
 	return hex.EncodeToString(random) + extension, nil
 }
 
+// validStorageKey 检查图片存储键的路径安全性和格式。
+// 参数：key 是待检查的存储键。
+// 返回：存储键是否有效。
 func validStorageKey(key string) bool {
 	if strings.ContainsAny(key, `/\`) || len(key) < 36 {
 		return false

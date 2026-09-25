@@ -25,10 +25,16 @@ type Handler struct {
 	limits map[string]loginAttempts
 }
 
+// NewHandler 创建登录处理器，并初始化登录失败次数记录。
+// 参数：store 是会话存储；secure 指定会话 Cookie 是否仅通过 HTTPS 发送。
+// 返回：配置好的 Handler。
 func NewHandler(store *Store, secure bool) *Handler {
 	return &Handler{store: store, secure: secure, limits: make(map[string]loginAttempts)}
 }
 
+// Login 校验管理员凭据，建立会话并写入登录响应。
+// 参数：h 是登录处理器；c 是请求上下文，用于读取登录信息和写入响应。
+// 返回：无。
 func (h *Handler) Login(c *gin.Context) {
 	var input struct {
 		Username string `json:"username"`
@@ -65,6 +71,9 @@ func (h *Handler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"csrfToken": csrf})
 }
 
+// RequireSession 创建校验会话及写操作 CSRF 令牌的中间件。
+// 参数：h 是登录处理器。
+// 返回：用于保护路由的 gin.HandlerFunc。
 func (h *Handler) RequireSession() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		cookie, err := c.Cookie(sessionCookieName)
@@ -91,6 +100,9 @@ func (h *Handler) RequireSession() gin.HandlerFunc {
 	}
 }
 
+// Logout 删除当前会话并清除会话 Cookie。
+// 参数：h 是登录处理器；c 是请求上下文，用于读取 Cookie 和写入响应。
+// 返回：无。
 func (h *Handler) Logout(c *gin.Context) {
 	token, _ := c.Cookie(sessionCookieName)
 	if err := h.store.DeleteSession(c.Request.Context(), token); err != nil {
@@ -102,10 +114,16 @@ func (h *Handler) Logout(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// Session 返回当前已认证状态。
+// 参数：h 是登录处理器；c 是请求上下文，用于写入响应。
+// 返回：无。
 func (h *Handler) Session(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"authenticated": true})
 }
 
+// isBlocked 判断指定登录来源是否达到失败次数限制。
+// 参数：h 是登录处理器；key 是客户端 IP 与用户名组成的标识。
+// 返回：是否暂时禁止该来源继续登录。
 func (h *Handler) isBlocked(key string) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -117,6 +135,9 @@ func (h *Handler) isBlocked(key string) bool {
 	return attempts.count >= 5
 }
 
+// recordFailure 记录指定来源的一次登录失败。
+// 参数：h 是登录处理器；key 是客户端 IP 与用户名组成的标识。
+// 返回：无。
 func (h *Handler) recordFailure(key string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -137,6 +158,9 @@ func (h *Handler) recordFailure(key string) {
 	}
 }
 
+// clearFailures 清除指定来源的登录失败记录。
+// 参数：h 是登录处理器；key 是客户端 IP 与用户名组成的标识。
+// 返回：无。
 func (h *Handler) clearFailures(key string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()

@@ -8,6 +8,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Open 建立并验证 PostgreSQL 连接池。
+// 参数：ctx 控制连接操作；databaseURL 是数据库连接地址。
+// 返回：可用的连接池；地址或连接无效时返回错误。
 func Open(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {

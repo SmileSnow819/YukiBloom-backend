@@ -27,6 +27,9 @@ type options struct {
 	replace    bool
 }
 
+// main 执行足迹和实习经历导入命令，并报告执行失败。
+// 参数：无。
+// 返回：无。
 func main() {
 	if err := run(context.Background(), os.Args[1:], os.Getenv, os.Stdout); err != nil {
 		log.Printf("个人内容导入未完成：%v", err)
@@ -34,6 +37,9 @@ func main() {
 	}
 }
 
+// run 预检查旧足迹与实习经历，并在指定 -apply 时导入数据库。
+// 参数：ctx 控制导入过程；args 是命令行参数；getenv 读取数据库等配置；output 接收检查结果。
+// 返回：error；参数、源文件、图片、数据库或输出处理失败时返回错误。
 func run(ctx context.Context, args []string, getenv func(string) string, output io.Writer) error {
 	flags := flag.NewFlagSet("import-personal", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -153,6 +159,9 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 	return err
 }
 
+// readYAML 读取 YAML 文件并将内容解码到目标数据结构。
+// 参数：path 是 YAML 文件路径；value 是接收解码结果的指针。
+// 返回：error；文件读取或 YAML 解码失败时返回错误。
 func readYAML(path string, value any) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -164,6 +173,9 @@ func readYAML(path string, value any) error {
 	return nil
 }
 
+// resolveAsset 将站内图片地址解析为资源目录下的本地文件路径。
+// 参数：root 是旧站点资源根目录；reference 是图片引用地址。
+// 返回：string 是本地文件路径，外部或非图片资源返回空字符串；error 表示路径不安全。
 func resolveAsset(root, reference string) (string, error) {
 	if !strings.HasPrefix(reference, "/img/") {
 		return "", nil
@@ -175,6 +187,9 @@ func resolveAsset(root, reference string) (string, error) {
 	return filepath.Join(root, relative), nil
 }
 
+// cleanupMedia 删除本次导入上传但尚未被内容引用的图片。
+// 参数：ctx 控制清理请求；store 是图片存储；ids 是待清理的图片编号。
+// 返回：无。
 func cleanupMedia(ctx context.Context, store *media.Store, ids []string) {
 	for _, id := range ids {
 		_ = store.DeleteUnused(ctx, id)

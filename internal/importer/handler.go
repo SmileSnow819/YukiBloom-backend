@@ -15,8 +15,14 @@ const maxMarkdownUpload = 2 << 20
 
 type Handler struct{ store *posts.Store }
 
+// NewHandler 创建 Markdown 导入处理器。
+// 参数：store 是文章存储。
+// 返回：使用该存储的 Handler。
 func NewHandler(store *posts.Store) *Handler { return &Handler{store: store} }
 
+// Preview 解析上传的 Markdown 并返回文章预览。
+// 参数：h 是Markdown 导入处理器；c 是请求上下文，用于读取上传文件和写入响应。
+// 返回：无。
 func (h *Handler) Preview(c *gin.Context) {
 	post, ok := h.parseUpload(c)
 	if !ok {
@@ -25,6 +31,9 @@ func (h *Handler) Preview(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"post": post.Input, "status": "draft", "coverPath": post.CoverPath})
 }
 
+// CreateDraft 将上传的 Markdown 解析并保存为草稿。
+// 参数：h 是Markdown 导入处理器；c 是请求上下文，用于读取表单和写入响应。
+// 返回：无。
 func (h *Handler) CreateDraft(c *gin.Context) {
 	post, ok := h.parseUpload(c)
 	if !ok {
@@ -59,6 +68,9 @@ func (h *Handler) CreateDraft(c *gin.Context) {
 	c.JSON(http.StatusCreated, created)
 }
 
+// parseUpload 读取、解析并校验上传的 Markdown 文件。
+// 参数：h 是Markdown 导入处理器；c 是请求上下文，用于读取上传文件和报告错误。
+// 返回：解析后的 MarkdownPost，以及上传是否有效。
 func (h *Handler) parseUpload(c *gin.Context) (MarkdownPost, bool) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxMarkdownUpload+(64<<10))
 	file, header, err := c.Request.FormFile("file")

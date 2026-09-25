@@ -9,8 +9,14 @@ import (
 
 type Store struct{ pool *pgxpool.Pool }
 
+// NewStore 创建使用指定 PostgreSQL 连接池的个人内容存储。
+// 参数：pool 是数据库连接池。
+// 返回：配置好的 Store。
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
+// Footprints 查询地点、停留和路线，并组装成足迹响应。
+// 参数：s 是个人内容存储；ctx 控制数据库查询的取消和截止时间。
+// 返回：Footprints 是完整足迹数据；error 表示查询或组装失败。
 func (s *Store) Footprints(ctx context.Context) (Footprints, error) {
 	var data Footprints
 	data.Locations = []Location{}
@@ -71,6 +77,9 @@ func (s *Store) Footprints(ctx context.Context) (Footprints, error) {
 	return data, rows.Err()
 }
 
+// ReplaceFootprints 在单个事务中替换足迹地点、停留和路线。
+// 参数：s 是个人内容存储；ctx 控制数据库事务；data 是待保存的完整足迹数据。
+// 返回：error；事务成功时返回 nil，数据库操作失败时返回错误。
 func (s *Store) ReplaceFootprints(ctx context.Context, data Footprints) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -86,6 +95,9 @@ func (s *Store) ReplaceFootprints(ctx context.Context, data Footprints) error {
 	return tx.Commit(ctx)
 }
 
+// ReplaceAll 在同一事务中替换足迹与实习经历。
+// 参数：s 是个人内容存储；ctx 控制数据库事务；footprints 是完整足迹数据；timeline 是完整实习经历列表。
+// 返回：error；事务成功时返回 nil，任一写入失败时返回错误并回滚。
 func (s *Store) ReplaceAll(ctx context.Context, footprints Footprints, timeline []Internship) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -104,6 +116,9 @@ func (s *Store) ReplaceAll(ctx context.Context, footprints Footprints, timeline 
 	return tx.Commit(ctx)
 }
 
+// replaceFootprints 使用现有事务替换足迹地点、停留和路线记录。
+// 参数：ctx 控制数据库操作；tx 是调用方创建的事务；data 是完整足迹数据。
+// 返回：error；全部写入成功时返回 nil，失败时返回数据库错误。
 func replaceFootprints(ctx context.Context, tx pgx.Tx, data Footprints) error {
 	if _, err := tx.Exec(ctx, "DELETE FROM footprint_routes"); err != nil {
 		return err
@@ -141,6 +156,9 @@ func replaceFootprints(ctx context.Context, tx pgx.Tx, data Footprints) error {
 	return nil
 }
 
+// Timeline 按展示顺序查询实习经历。
+// 参数：s 是个人内容存储；ctx 控制数据库查询。
+// 返回：[]Internship 是经历列表；error 表示查询或读取失败。
 func (s *Store) Timeline(ctx context.Context) ([]Internship, error) {
 	rows, err := s.pool.Query(ctx, `SELECT id,start_date,end_date,is_present,company,icon,icon_color,position,description,sort_order
 		FROM internship_experiences ORDER BY sort_order,id`)
@@ -159,6 +177,9 @@ func (s *Store) Timeline(ctx context.Context) ([]Internship, error) {
 	return items, rows.Err()
 }
 
+// ReplaceTimeline 在单个事务中替换全部实习经历。
+// 参数：s 是个人内容存储；ctx 控制数据库事务；items 是待保存的完整经历列表。
+// 返回：error；事务成功时返回 nil，数据库操作失败时返回错误。
 func (s *Store) ReplaceTimeline(ctx context.Context, items []Internship) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -171,6 +192,9 @@ func (s *Store) ReplaceTimeline(ctx context.Context, items []Internship) error {
 	return tx.Commit(ctx)
 }
 
+// replaceTimeline 使用现有事务替换实习经历记录。
+// 参数：ctx 控制数据库操作；tx 是调用方创建的事务；items 是待保存的完整经历列表。
+// 返回：error；全部写入成功时返回 nil，失败时返回数据库错误。
 func replaceTimeline(ctx context.Context, tx pgx.Tx, items []Internship) error {
 	if _, err := tx.Exec(ctx, "DELETE FROM internship_experiences"); err != nil {
 		return err
