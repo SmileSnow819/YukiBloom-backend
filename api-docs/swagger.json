@@ -1324,6 +1324,70 @@
                     }
                 }
             },
+            "delete": {
+                "description": "需要登录和 CSRF 令牌；删除后无法恢复。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理文章"
+                ],
+                "summary": "删除文章",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文章 UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "登录接口返回的 csrfToken",
+                        "name": "X-CSRF-Token",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功，data 为 null",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "400": {
+                        "description": "code=10001，文章 ID 格式错误",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "401": {
+                        "description": "code=10002，尚未登录",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "403": {
+                        "description": "code=10003，CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "404": {
+                        "description": "code=10004，文章不存在",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "500": {
+                        "description": "code=50000，删除失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    }
+                }
+            },
             "patch": {
                 "description": "需要登录和 CSRF 令牌。请求中的 version 必须与读取文章时一致，否则返回冲突。",
                 "consumes": [

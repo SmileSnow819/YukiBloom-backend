@@ -310,3 +310,17 @@ func mapWriteError(err error) error {
 	}
 	return err
 }
+
+// Delete 按文章 ID 永久删除文章。
+// 参数：s 是文章存储；ctx 控制数据库操作；id 是文章 ID。
+// 返回：error 表示文章不存在或删除失败。
+func (s *Store) Delete(ctx context.Context, id string) error {
+	tag, err := s.pool.Exec(ctx, "DELETE FROM posts WHERE id = $1", id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

@@ -396,3 +396,36 @@ func internalError(c *gin.Context, err error) {
 	log.Printf("文章请求处理失败：%v", err)
 	apiresponse.Failure(c, apiresponse.InternalError, "服务暂时不可用，请稍后再试")
 }
+
+// Delete 永久删除指定文章。
+// 参数：h 是文章处理器；c 提供文章 ID 并接收 HTTP 响应。
+// 返回：无；删除结果或中文错误写入 HTTP 响应。
+// @Summary 删除文章
+// @Description 需要登录和 CSRF 令牌；删除后无法恢复。
+// @Tags 管理文章
+// @Produce json
+// @Param id path string true "文章 UUID"
+// @Param X-CSRF-Token header string true "登录接口返回的 csrfToken"
+// @Success 200 {object} apiresponse.Envelope "删除成功，data 为 null"
+// @Failure 400 {object} apiresponse.Envelope "code=10001，文章 ID 格式错误"
+// @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
+// @Failure 403 {object} apiresponse.Envelope "code=10003，CSRF 校验失败"
+// @Failure 404 {object} apiresponse.Envelope "code=10004，文章不存在"
+// @Failure 500 {object} apiresponse.Envelope "code=50000，删除失败"
+// @Router /api/v1/admin/posts/{id} [delete]
+func (h *Handler) Delete(c *gin.Context) {
+	id := c.Param("id")
+	if !validUUID.MatchString(id) {
+		apiresponse.Failure(c, apiresponse.InvalidRequest, "文章 ID 格式不正确")
+		return
+	}
+	if err := h.store.Delete(c.Request.Context(), id); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			apiresponse.Failure(c, apiresponse.NotFound, "文章不存在")
+			return
+		}
+		internalError(c, err)
+		return
+	}
+	apiresponse.Success(c, http.StatusOK, nil)
+}

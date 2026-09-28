@@ -92,6 +92,7 @@ YukiBloom-backend/
     │   └── store_test.go
     ├── posts/
     │   ├── handler.go
+    │   ├── handler_test.go
     │   ├── model.go
     │   └── store.go
     └── sitecontent/
@@ -166,9 +167,10 @@ YukiBloom-backend/
 | `internal/personal/model.go` | 定义足迹地点、停留、路线和实习经历的数据结构。 |
 | `internal/personal/store.go` | 读取或事务化替换足迹、路线和实习经历数据。 |
 | `internal/personal/store_test.go` | 验证足迹和实习经历的旧版本写入会被拒绝。 |
-| `internal/posts/handler.go` | 处理文章公开查询、后台编辑、发布、撤回和参数校验。 |
+| `internal/posts/handler.go` | 处理文章公开查询、后台编辑、发布、撤回、删除和参数校验。 |
+| `internal/posts/handler_test.go` | 验证删除文章接口会拒绝无效的文章 ID。 |
 | `internal/posts/model.go` | 定义文章记录、编辑输入和分页响应结构。 |
-| `internal/posts/store.go` | 执行文章的公开查询、后台增改、发布和冲突检测 SQL。 |
+| `internal/posts/store.go` | 执行文章的公开查询、后台增改删、发布和冲突检测 SQL。 |
 | `internal/sitecontent/handler.go` | 处理站点内容与独立页面的公开读取及后台管理请求。 |
 | `internal/sitecontent/legacy.go` | 解析旧站点 YAML、关于页和歌单页面数据。 |
 | `internal/sitecontent/model.go` | 定义站点资料、导航、友链、翻译、音乐和独立页面模型。 |

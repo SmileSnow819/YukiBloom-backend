@@ -58,6 +58,7 @@ func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandl
 			admin.POST("/posts", postHandler.Create)
 			admin.GET("/posts/:id", postHandler.AdminByID)
 			admin.PATCH("/posts/:id", postHandler.Update)
+			admin.DELETE("/posts/:id", postHandler.Delete)
 			admin.POST("/posts/:id/publish", postHandler.Publish)
 			admin.POST("/posts/:id/unpublish", postHandler.Unpublish)
 		}
