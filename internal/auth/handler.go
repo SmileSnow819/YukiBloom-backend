@@ -93,13 +93,24 @@ func (h *Handler) Login(c *gin.Context) {
 // 参数：h 是登录处理器。
 // 返回：用于保护路由的 gin.HandlerFunc。
 func (h *Handler) RequireSession() gin.HandlerFunc {
+	return h.requireSession(true)
+}
+
+// RequireSessionWithoutCSRF 校验会话但不要求 CSRF 令牌，适用于仅结束当前会话的登出请求。
+// 参数：h 是登录处理器。
+// 返回：用于保护登出路由的 gin.HandlerFunc。
+func (h *Handler) RequireSessionWithoutCSRF() gin.HandlerFunc {
+	return h.requireSession(false)
+}
+
+func (h *Handler) requireSession(requireCSRF bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		cookie, err := c.Cookie(sessionCookieName)
 		if err != nil {
 			apiresponse.Abort(c, apiresponse.Unauthenticated, "请先登录")
 			return
 		}
-		mutation := c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead && c.Request.Method != http.MethodOptions
+		mutation := requireCSRF && c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead && c.Request.Method != http.MethodOptions
 		adminID, err := h.store.Authenticate(c.Request.Context(), cookie, c.GetHeader("X-CSRF-Token"), mutation)
 		if errors.Is(err, ErrUnauthenticated) {
 			apiresponse.Abort(c, apiresponse.Unauthenticated, "请先登录")
@@ -125,10 +136,8 @@ func (h *Handler) RequireSession() gin.HandlerFunc {
 // @Description 删除当前登录会话并清除会话 Cookie。
 // @Tags 管理员会话
 // @Produce json
-// @Param X-CSRF-Token header string true "登录接口返回的 csrfToken"
 // @Success 200 {object} apiresponse.Envelope "退出成功，data 为 null"
 // @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
-// @Failure 403 {object} apiresponse.Envelope "code=10003，CSRF 校验失败"
 // @Failure 500 {object} apiresponse.Envelope "code=50000，退出失败"
 // @Router /api/v1/admin/logout [post]
 func (h *Handler) Logout(c *gin.Context) {

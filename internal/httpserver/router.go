@@ -50,9 +50,9 @@ func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandl
 	router.GET("/api/v1/health", Health)
 	if authHandler != nil {
 		router.POST("/api/v1/admin/login", authHandler.Login)
+		router.POST("/api/v1/admin/logout", authHandler.RequireSessionWithoutCSRF(), authHandler.Logout)
 		admin := router.Group("/api/v1/admin", authHandler.RequireSession())
 		admin.GET("/session", authHandler.Session)
-		admin.POST("/logout", authHandler.Logout)
 		if postHandler != nil {
 			admin.GET("/posts", postHandler.AdminList)
 			admin.POST("/posts", postHandler.Create)

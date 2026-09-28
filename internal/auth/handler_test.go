@@ -63,6 +63,34 @@ func TestLoginAndProtectedMutation(t *testing.T) {
 	}
 }
 
+func TestLogoutDoesNotRequireCSRFToken(t *testing.T) {
+	ctx, store := testStore(t)
+	username := fmt.Sprintf("logout-test-%d", time.Now().UnixNano())
+	if _, err := store.CreateAdmin(ctx, username, "long test password"); err != nil {
+		t.Fatal(err)
+	}
+	handler := NewHandler(store, false)
+	router := gin.New()
+	router.POST("/login", handler.Login)
+	router.POST("/api/v1/admin/logout", handler.RequireSessionWithoutCSRF(), handler.Logout)
+	login := postJSON(router, "/login", fmt.Sprintf(`{"username":%q,"password":"long test password"}`, username), nil, "")
+	if login.Code != http.StatusOK {
+		t.Fatalf("login status %d: %s", login.Code, login.Body.String())
+	}
+	cookies := login.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("expected session cookie, got %d", len(cookies))
+	}
+
+	logout := postJSON(router, "/api/v1/admin/logout", `{}`, cookies[0], "stale-csrf-token")
+	if logout.Code != http.StatusOK {
+		t.Fatalf("expected logout to accept a stale CSRF token, got %d: %s", logout.Code, logout.Body.String())
+	}
+	if _, err := store.Authenticate(ctx, cookies[0].Value, "", false); err != ErrUnauthenticated {
+		t.Fatalf("expected logout to delete the session, got %v", err)
+	}
+}
+
 func TestLoginLimitsRepeatedAttempts(t *testing.T) {
 	_, store := testStore(t)
 	handler := NewHandler(store, false)
