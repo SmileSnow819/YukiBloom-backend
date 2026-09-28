@@ -137,15 +137,40 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 	if err := database.Migrate(startupCtx, pool); err != nil {
 		return fmt.Errorf("数据库迁移失败：%w", err)
 	}
+	importCtx, importCancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer importCancel()
+	tx, err := pool.Begin(importCtx)
+	if err != nil {
+		return fmt.Errorf("开始文章导入事务失败：%w", err)
+	}
+	committed := false
+	newFiles := make([]string, 0)
+	defer func() {
+		if committed {
+			return
+		}
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cleanupCancel()
+		_ = tx.Rollback(cleanupCtx)
+		for _, path := range newFiles {
+			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				log.Printf("清理未完成导入的图片失败：%v", err)
+			}
+		}
+	}()
+	if _, err := tx.Exec(importCtx, "SELECT pg_advisory_xact_lock(20260925)"); err != nil {
+		return fmt.Errorf("锁定文章导入事务失败：%w", err)
+	}
 	postStore := posts.NewStore(pool)
 	mediaStore := media.NewStore(pool, cfg.UploadDir)
 	coverIDs := make(map[string]string)
 	created, skipped := 0, 0
+	messages := make([]string, 0, len(candidates))
 	for _, item := range candidates {
-		if exists, err := postStore.Exists(startupCtx, item.post.Input.Locale, item.post.Input.Slug); err != nil {
+		if exists, err := postStore.ExistsInTx(importCtx, tx, item.post.Input.Locale, item.post.Input.Slug); err != nil {
 			return fmt.Errorf("检查文章 %s 失败：%w", item.post.Input.Slug, err)
 		} else if exists {
-			fmt.Fprintf(output, "已跳过 %s：数据库中已有此文章\n", item.post.Input.Slug)
+			messages = append(messages, fmt.Sprintf("已跳过 %s：数据库中已有此文章", item.post.Input.Slug))
 			skipped++
 			continue
 		}
@@ -156,29 +181,35 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 				if err != nil {
 					return fmt.Errorf("打开封面图片失败：%w", err)
 				}
-				image, uploadErr := mediaStore.Save(startupCtx, file)
+				image, path, uploadErr := mediaStore.SaveInTx(importCtx, tx, file)
 				file.Close()
 				if uploadErr != nil {
 					return fmt.Errorf("导入封面 %s 失败：%w", item.post.CoverPath, uploadErr)
 				}
 				id = image.ID
+				newFiles = append(newFiles, path)
 				coverIDs[item.post.CoverPath] = id
 			}
 			item.post.Input.CoverMediaID = &id
 		}
-		_, imported, err := postStore.Import(startupCtx, item.post.Input, !item.post.Draft)
+		_, imported, err := postStore.ImportInTx(importCtx, tx, item.post.Input, !item.post.Draft)
 		if err != nil {
 			return fmt.Errorf("导入文章 %s 失败：%w", item.post.Input.Slug, err)
 		}
 		if imported {
 			created++
-			fmt.Fprintf(output, "已导入 %s\n", item.post.Input.Slug)
+			messages = append(messages, fmt.Sprintf("已导入 %s", item.post.Input.Slug))
 		} else {
-			skipped++
-			if item.post.Input.CoverMediaID != nil {
-				_ = mediaStore.DeleteUnused(startupCtx, *item.post.Input.CoverMediaID)
-			}
-			fmt.Fprintf(output, "已跳过 %s：导入时检测到重复\n", item.post.Input.Slug)
+			return fmt.Errorf("导入文章 %s 时出现并发冲突，请重试", item.post.Input.Slug)
+		}
+	}
+	if err := tx.Commit(importCtx); err != nil {
+		return fmt.Errorf("提交文章导入事务失败：%w", err)
+	}
+	committed = true
+	for _, message := range messages {
+		if _, err := fmt.Fprintln(output, message); err != nil {
+			return err
 		}
 	}
 	_, err = fmt.Fprintf(output, "导入结束：新增 %d 篇，跳过 %d 篇。\n", created, skipped)

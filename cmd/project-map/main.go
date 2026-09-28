@@ -134,6 +134,9 @@ func scanFiles(root string) ([]string, error) {
 		if entry.IsDir() {
 			return nil
 		}
+		if entry.Name() == ".env" || entry.Name() == ".DS_Store" {
+			return nil
+		}
 		relative, err := filepath.Rel(root, path)
 		if err != nil {
 			return err

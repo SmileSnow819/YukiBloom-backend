@@ -57,25 +57,42 @@ func NewStore(pool *pgxpool.Pool, root string) *Store { return &Store{pool: pool
 // 参数：s 是图片存储；ctx 控制数据库操作；source 是图片数据流。
 // 返回：已保存的 Item；读取、校验或保存失败时返回错误。
 func (s *Store) Save(ctx context.Context, source io.Reader) (Item, error) {
+	item, _, err := s.save(ctx, s.pool, source)
+	return item, err
+}
+
+// SaveInTx 在调用方的事务中登记图片，并返回文件路径供事务回滚时清理。
+// 参数：s 是图片存储；ctx 控制操作；tx 是调用方事务；source 是图片数据流。
+// 返回：已保存的图片、图片文件路径，以及保存错误。
+func (s *Store) SaveInTx(ctx context.Context, tx pgx.Tx, source io.Reader) (Item, string, error) {
+	return s.save(ctx, tx, source)
+}
+
+// save 校验并保存图片文件，再通过指定查询器登记元数据。
+// 参数：s 是图片存储；ctx 控制操作；query 是连接池或事务；source 是图片数据流。
+// 返回：图片记录、文件路径，以及保存错误。
+func (s *Store) save(ctx context.Context, query interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, source io.Reader) (Item, string, error) {
 	data, info, err := readImage(source)
 	if err != nil {
-		return Item{}, err
+		return Item{}, "", err
 	}
 	key, err := storageKey(info.Extension)
 	if err != nil {
-		return Item{}, fmt.Errorf("生成图片文件名失败：%w", err)
+		return Item{}, "", fmt.Errorf("生成图片文件名失败：%w", err)
 	}
 	path, err := writeImageFile(s.root, key, data)
 	if err != nil {
-		return Item{}, err
+		return Item{}, "", err
 	}
-	item, err := s.saveImageMetadata(ctx, key, info, int64(len(data)))
+	item, err := s.saveImageMetadata(ctx, query, key, info, int64(len(data)))
 	if err != nil {
 		_ = os.Remove(path)
-		return Item{}, err
+		return Item{}, "", err
 	}
 	item.URL = "/uploads/" + key
-	return item, nil
+	return item, path, nil
 }
 
 // readImage 限制读取大小并校验图片内容。
@@ -132,11 +149,13 @@ func writeImageFile(root, key string, data []byte) (string, error) {
 }
 
 // saveImageMetadata 将图片文件信息写入 media 表。
-// 参数：ctx 控制数据库操作；key 是图片存储键；info 是已校验的图片信息；size 是文件字节数。
+// 参数：ctx 控制数据库操作；query 是连接池或事务；key 是图片存储键；info 是已校验的图片信息；size 是文件字节数。
 // 返回：数据库生成的图片记录；写入失败时返回错误。
-func (s *Store) saveImageMetadata(ctx context.Context, key string, info ImageInfo, size int64) (Item, error) {
+func (s *Store) saveImageMetadata(ctx context.Context, query interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, key string, info ImageInfo, size int64) (Item, error) {
 	var item Item
-	err := s.pool.QueryRow(ctx, `INSERT INTO media (storage_key, mime_type, size_bytes, width, height)
+	err := query.QueryRow(ctx, `INSERT INTO media (storage_key, mime_type, size_bytes, width, height)
 		VALUES ($1,$2,$3,$4,$5) RETURNING id, storage_key, mime_type, size_bytes, width, height, created_at`,
 		key, info.MIMEType, size, info.Width, info.Height).Scan(&item.ID, &key, &item.MIMEType, &item.SizeBytes, &item.Width, &item.Height, &item.CreatedAt)
 	if err != nil {

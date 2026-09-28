@@ -57,6 +57,7 @@ func (h *Handler) GetFootprints(c *gin.Context) {
 // @Failure 400 {object} apiresponse.Envelope "code=10001，足迹数据无效"
 // @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
 // @Failure 403 {object} apiresponse.Envelope "code=10003，CSRF 校验失败"
+// @Failure 409 {object} apiresponse.Envelope "code=10005，足迹版本冲突"
 // @Failure 500 {object} apiresponse.Envelope "code=50000，保存失败"
 // @Router /api/v1/admin/footprints [put]
 func (h *Handler) ReplaceFootprints(c *gin.Context) {
@@ -68,7 +69,15 @@ func (h *Handler) ReplaceFootprints(c *gin.Context) {
 		apiresponse.Failure(c, apiresponse.InvalidRequest, err.Error())
 		return
 	}
+	if data.Version < 1 {
+		apiresponse.Failure(c, apiresponse.InvalidRequest, "保存足迹时必须提供有效的 version")
+		return
+	}
 	if err := h.store.ReplaceFootprints(c.Request.Context(), data); err != nil {
+		if errors.Is(err, ErrConflict) {
+			apiresponse.Failure(c, apiresponse.Conflict, ErrConflict.Error())
+			return
+		}
 		personalError(c, err)
 		return
 	}
@@ -81,16 +90,16 @@ func (h *Handler) ReplaceFootprints(c *gin.Context) {
 // @Summary 查询公开实习经历
 // @Tags 个人内容
 // @Produce json
-// @Success 200 {object} apiresponse.Envelope{data=map[string]interface{}} "包含 items 数组的时间线"
+// @Success 200 {object} apiresponse.Envelope{data=TimelineInput} "包含 version 和 items 的时间线"
 // @Failure 500 {object} apiresponse.Envelope "code=50000，查询失败"
 // @Router /api/v1/timeline [get]
 func (h *Handler) GetTimeline(c *gin.Context) {
-	items, err := h.store.Timeline(c.Request.Context())
+	items, version, err := h.store.Timeline(c.Request.Context())
 	if err != nil {
 		personalError(c, err)
 		return
 	}
-	apiresponse.Success(c, http.StatusOK, gin.H{"items": items})
+	apiresponse.Success(c, http.StatusOK, TimelineInput{Version: version, Items: items})
 }
 
 // ReplaceTimeline 校验管理员提交的经历列表并整体保存。
@@ -107,6 +116,7 @@ func (h *Handler) GetTimeline(c *gin.Context) {
 // @Failure 400 {object} apiresponse.Envelope "code=10001，时间线数据无效"
 // @Failure 401 {object} apiresponse.Envelope "code=10002，尚未登录"
 // @Failure 403 {object} apiresponse.Envelope "code=10003，CSRF 校验失败"
+// @Failure 409 {object} apiresponse.Envelope "code=10005，实习经历版本冲突"
 // @Failure 500 {object} apiresponse.Envelope "code=50000，保存失败"
 // @Router /api/v1/admin/timeline [put]
 func (h *Handler) ReplaceTimeline(c *gin.Context) {
@@ -118,7 +128,15 @@ func (h *Handler) ReplaceTimeline(c *gin.Context) {
 		apiresponse.Failure(c, apiresponse.InvalidRequest, err.Error())
 		return
 	}
-	if err := h.store.ReplaceTimeline(c.Request.Context(), body.Items); err != nil {
+	if body.Version < 1 {
+		apiresponse.Failure(c, apiresponse.InvalidRequest, "保存实习经历时必须提供有效的 version")
+		return
+	}
+	if err := h.store.ReplaceTimeline(c.Request.Context(), body.Items, body.Version); err != nil {
+		if errors.Is(err, ErrConflict) {
+			apiresponse.Failure(c, apiresponse.Conflict, ErrConflict.Error())
+			return
+		}
 		personalError(c, err)
 		return
 	}

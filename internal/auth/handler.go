@@ -19,6 +19,14 @@ type loginAttempts struct {
 	until time.Time
 }
 
+// LoginInput 是管理员登录接口接收的凭据。
+type LoginInput struct {
+	// Username 是管理员用户名。
+	Username string `json:"username"`
+	// Password 是管理员密码。
+	Password string `json:"password"`
+}
+
 type Handler struct {
 	store  *Store
 	secure bool
@@ -41,7 +49,7 @@ func NewHandler(store *Store, secure bool) *Handler {
 // @Tags 管理员会话
 // @Accept json
 // @Produce json
-// @Param request body map[string]string true "登录凭据，包含 username 和 password"
+// @Param request body LoginInput true "登录凭据"
 // @Success 200 {object} apiresponse.Envelope{data=map[string]string} "登录成功，返回 csrfToken，并通过 Set-Cookie 设置会话"
 // @Failure 400 {object} apiresponse.Envelope "code=10001，用户名或密码为空或格式错误"
 // @Failure 401 {object} apiresponse.Envelope "code=10002，用户名或密码错误"
@@ -49,10 +57,7 @@ func NewHandler(store *Store, secure bool) *Handler {
 // @Failure 500 {object} apiresponse.Envelope "code=50000，登录服务暂不可用"
 // @Router /api/v1/admin/login [post]
 func (h *Handler) Login(c *gin.Context) {
-	var input struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
+	var input LoginInput
 	if err := c.ShouldBindJSON(&input); err != nil || strings.TrimSpace(input.Username) == "" || input.Password == "" {
 		apiresponse.Failure(c, apiresponse.InvalidRequest, "请填写用户名和密码")
 		return

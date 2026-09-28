@@ -109,6 +109,15 @@ func (s *Store) Exists(ctx context.Context, locale, slug string) (bool, error) {
 	return exists, err
 }
 
+// ExistsInTx 在调用方事务中检查文章是否已存在。
+// 参数：s 是文章存储；ctx 控制查询；tx 是调用方事务；locale 是语言代码；slug 是链接标识。
+// 返回：bool 表示文章是否存在；error 表示查询失败。
+func (s *Store) ExistsInTx(ctx context.Context, tx pgx.Tx, locale, slug string) (bool, error) {
+	var exists bool
+	err := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM posts WHERE locale=$1 AND slug=$2)", locale, slug).Scan(&exists)
+	return exists, err
+}
+
 // Create 新建文章并在一个事务中提交数据库变更。
 // 参数：s 是文章存储；ctx 控制事务；input 包含文章正文、元数据和封面信息。
 // 返回：Post 是创建后的文章；error 表示写入失败或唯一标识冲突。
@@ -145,10 +154,10 @@ func (s *Store) Create(ctx context.Context, input PostInput) (Post, error) {
 	return post, nil
 }
 
-// Import 仅导入尚不存在的文章，不覆盖后台后续编辑的内容。
-// 参数：s 是文章存储；ctx 控制事务；input 是待导入文章；published 决定是否直接发布。
+// ImportInTx 在调用方事务中导入尚不存在的文章，不覆盖后台编辑内容。
+// 参数：s 是文章存储；ctx 控制数据库操作；tx 是调用方事务；input 是待导入文章；published 决定是否直接发布。
 // 返回：Post 是新导入文章；bool 表示本次是否创建；error 表示导入失败。
-func (s *Store) Import(ctx context.Context, input PostInput, published bool) (Post, bool, error) {
+func (s *Store) ImportInTx(ctx context.Context, tx pgx.Tx, input PostInput, published bool) (Post, bool, error) {
 	status := "draft"
 	var publishedAt *time.Time
 	if published {
@@ -169,14 +178,6 @@ func (s *Store) Import(ctx context.Context, input PostInput, published bool) (Po
 	if input.Tags == nil {
 		input.Tags = []string{}
 	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return Post{}, false, err
-	}
-	defer tx.Rollback(ctx)
-	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(20260925)"); err != nil {
-		return Post{}, false, err
-	}
 	post, err := scanPost(tx.QueryRow(ctx, `INSERT INTO posts
 		(locale, slug, title, description, body_markdown, status, display_date, published_at, categories, tags, extra, cover_media_id)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
@@ -188,9 +189,6 @@ func (s *Store) Import(ctx context.Context, input PostInput, published bool) (Po
 	}
 	if err != nil {
 		return Post{}, false, mapWriteError(err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return Post{}, false, err
 	}
 	return post, true, nil
 }

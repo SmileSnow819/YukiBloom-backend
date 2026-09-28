@@ -8,6 +8,7 @@ import (
 
 	"github.com/SmileSnow819/YukiBloom-backend/internal/auth"
 	"github.com/SmileSnow819/YukiBloom-backend/internal/database"
+	"github.com/SmileSnow819/YukiBloom-backend/internal/personal"
 )
 
 func TestAuthRoutesRequireLogin(t *testing.T) {
@@ -23,11 +24,19 @@ func TestAuthRoutesRequireLogin(t *testing.T) {
 	if err := database.Migrate(t.Context(), pool); err != nil {
 		t.Fatal(err)
 	}
-	router := NewRouter(auth.NewHandler(auth.NewStore(pool), true), nil, nil, nil, nil, nil)
+	router := NewRouter(auth.NewHandler(auth.NewStore(pool), true), nil, nil, nil, personal.NewHandler(personal.NewStore(pool)), nil)
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/session", nil)
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("未登录访问后台会话应返回 401，实际为 %d", response.Code)
+	}
+	for _, path := range []string{"/api/v1/admin/footprints", "/api/v1/admin/timeline"} {
+		request := httptest.NewRequest(http.MethodPut, path, nil)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		if response.Code != http.StatusUnauthorized {
+			t.Fatalf("未登录修改 %s 应返回 401，实际为 %d", path, response.Code)
+		}
 	}
 }

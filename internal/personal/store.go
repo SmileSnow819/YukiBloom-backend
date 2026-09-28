@@ -2,12 +2,15 @@ package personal
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Store struct{ pool *pgxpool.Pool }
+
+var ErrConflict = errors.New("个人内容已被其他操作修改，请刷新后重试")
 
 // NewStore 创建使用指定 PostgreSQL 连接池的个人内容存储。
 // 参数：pool 是数据库连接池。
@@ -19,6 +22,9 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 // 返回：Footprints 是完整足迹数据；error 表示查询或组装失败。
 func (s *Store) Footprints(ctx context.Context) (Footprints, error) {
 	var data Footprints
+	if err := s.pool.QueryRow(ctx, `SELECT footprints_version FROM personal_content_revision WHERE singleton=true`).Scan(&data.Version); err != nil {
+		return Footprints{}, err
+	}
 	data.Locations = []Location{}
 	data.Stays = []Stay{}
 	data.Routes = []Route{}
@@ -89,6 +95,13 @@ func (s *Store) ReplaceFootprints(ctx context.Context, data Footprints) error {
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(20260925)"); err != nil {
 		return err
 	}
+	result, err := tx.Exec(ctx, `UPDATE personal_content_revision SET footprints_version=footprints_version+1 WHERE singleton=true AND footprints_version=$1`, data.Version)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() != 1 {
+		return ErrConflict
+	}
 	if err := replaceFootprints(ctx, tx, data); err != nil {
 		return err
 	}
@@ -105,6 +118,9 @@ func (s *Store) ReplaceAll(ctx context.Context, footprints Footprints, timeline 
 	}
 	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(20260925)"); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE personal_content_revision SET footprints_version=footprints_version+1,timeline_version=timeline_version+1 WHERE singleton=true`); err != nil {
 		return err
 	}
 	if err := replaceFootprints(ctx, tx, footprints); err != nil {
@@ -158,34 +174,48 @@ func replaceFootprints(ctx context.Context, tx pgx.Tx, data Footprints) error {
 
 // Timeline 按展示顺序查询实习经历。
 // 参数：s 是个人内容存储；ctx 控制数据库查询。
-// 返回：[]Internship 是经历列表；error 表示查询或读取失败。
-func (s *Store) Timeline(ctx context.Context) ([]Internship, error) {
+// 返回：[]Internship 是经历列表；int64 是当前版本号；error 表示查询或读取失败。
+func (s *Store) Timeline(ctx context.Context) ([]Internship, int64, error) {
+	var version int64
+	if err := s.pool.QueryRow(ctx, `SELECT timeline_version FROM personal_content_revision WHERE singleton=true`).Scan(&version); err != nil {
+		return nil, 0, err
+	}
 	rows, err := s.pool.Query(ctx, `SELECT id,start_date,end_date,is_present,company,icon,icon_color,position,description,sort_order
 		FROM internship_experiences ORDER BY sort_order,id`)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 	items := make([]Internship, 0)
 	for rows.Next() {
 		var item Internship
 		if err := rows.Scan(&item.ID, &item.StartDate, &item.EndDate, &item.IsPresent, &item.Company, &item.Icon, &item.IconColor, &item.Position, &item.Description, &item.SortOrder); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	return items, version, rows.Err()
 }
 
 // ReplaceTimeline 在单个事务中替换全部实习经历。
-// 参数：s 是个人内容存储；ctx 控制数据库事务；items 是待保存的完整经历列表。
+// 参数：s 是个人内容存储；ctx 控制数据库事务；items 是待保存的完整经历列表；version 是读取时的版本号。
 // 返回：error；事务成功时返回 nil，数据库操作失败时返回错误。
-func (s *Store) ReplaceTimeline(ctx context.Context, items []Internship) error {
+func (s *Store) ReplaceTimeline(ctx context.Context, items []Internship, version int64) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(20260925)"); err != nil {
+		return err
+	}
+	result, err := tx.Exec(ctx, `UPDATE personal_content_revision SET timeline_version=timeline_version+1 WHERE singleton=true AND timeline_version=$1`, version)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() != 1 {
+		return ErrConflict
+	}
 	if err := replaceTimeline(ctx, tx, items); err != nil {
 		return err
 	}

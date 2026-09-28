@@ -35,6 +35,7 @@ type Route struct {
 }
 
 type Footprints struct {
+	Version   int64      `json:"version" yaml:"-"`
 	Locations []Location `json:"locations" yaml:"locations"`
 	Stays     []Stay     `json:"stays" yaml:"stays"`
 	Routes    []Route    `json:"routes" yaml:"routes"`
@@ -55,5 +56,6 @@ type Internship struct {
 
 // TimelineInput 是整体保存实习经历接口的请求体。
 type TimelineInput struct {
-	Items []Internship `json:"items"`
+	Version int64        `json:"version"`
+	Items   []Internship `json:"items"`
 }

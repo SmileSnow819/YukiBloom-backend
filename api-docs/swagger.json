@@ -5,7 +5,7 @@
     ],
     "swagger": "2.0",
     "info": {
-        "description": "YukiBloom 网站的文章、图片、个人内容和站点页面 API。JSON 响应统一使用 code、message、data；成功 code 为 0，失败 code 与 HTTP 状态码一致。",
+        "description": "YukiBloom 网站的文章、图片、个人内容和站点页面 API。JSON 响应统一使用 code、message、data；成功 code 为 0。错误码 10001、10002、10003、10004、10005、10006、10007、10008、50000 分别表示参数错误、未登录、无权限、资源不存在、内容冲突、请求过大、请求过频、不支持请求方法和服务错误。",
         "title": "YukiBloom 后端接口",
         "contact": {},
         "version": "1.0"
@@ -63,25 +63,31 @@
                         }
                     },
                     "400": {
-                        "description": "足迹数据无效",
+                        "description": "code=10001，足迹数据无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "code=10005，足迹版本冲突",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "保存失败",
+                        "description": "code=50000，保存失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -104,15 +110,12 @@
                 "summary": "管理员登录",
                 "parameters": [
                     {
-                        "description": "登录凭据，包含 username 和 password",
+                        "description": "登录凭据",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/auth.LoginInput"
                         }
                     }
                 ],
@@ -139,25 +142,25 @@
                         }
                     },
                     "400": {
-                        "description": "用户名或密码为空或格式错误",
+                        "description": "code=10001，用户名或密码为空或格式错误",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "用户名或密码错误",
+                        "description": "code=10002，用户名或密码错误",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "429": {
-                        "description": "登录尝试过多",
+                        "description": "code=10007，登录尝试过多",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "登录服务暂不可用",
+                        "description": "code=50000，登录服务暂不可用",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -192,19 +195,19 @@
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "退出失败",
+                        "description": "code=50000，退出失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -259,19 +262,19 @@
                         }
                     },
                     "400": {
-                        "description": "分页参数无效",
+                        "description": "code=10001，分页参数无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "查询失败",
+                        "description": "code=50000，查询失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -326,31 +329,31 @@
                         }
                     },
                     "400": {
-                        "description": "图片格式或请求无效",
+                        "description": "code=10001，图片格式或请求无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "413": {
-                        "description": "图片超过大小限制",
+                        "description": "code=10006，图片超过大小限制",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "上传失败",
+                        "description": "code=50000，上传失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -392,37 +395,37 @@
                         }
                     },
                     "400": {
-                        "description": "图片 ID 格式错误",
+                        "description": "code=10001，图片 ID 格式错误",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "404": {
-                        "description": "图片不存在",
+                        "description": "code=10004，图片不存在",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "409": {
-                        "description": "图片仍被内容引用",
+                        "description": "code=10005，图片仍被内容引用",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "删除失败",
+                        "description": "code=50000，删除失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -461,13 +464,13 @@
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "查询失败",
+                        "description": "code=50000，查询失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -524,31 +527,31 @@
                         }
                     },
                     "400": {
-                        "description": "页面内容无效",
+                        "description": "code=10001，页面内容无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "409": {
-                        "description": "语言和链接标识已被占用",
+                        "description": "code=10005，语言和链接标识已被占用",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "保存失败",
+                        "description": "code=50000，保存失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -595,25 +598,25 @@
                         }
                     },
                     "400": {
-                        "description": "页面 ID 格式错误",
+                        "description": "code=10001，页面 ID 格式错误",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "404": {
-                        "description": "页面不存在",
+                        "description": "code=10004，页面不存在",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "查询失败",
+                        "description": "code=50000，查询失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -653,31 +656,31 @@
                         }
                     },
                     "400": {
-                        "description": "页面 ID 格式错误",
+                        "description": "code=10001，页面 ID 格式错误",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "404": {
-                        "description": "页面不存在",
+                        "description": "code=10004，页面不存在",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "删除失败",
+                        "description": "code=50000，删除失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -741,37 +744,37 @@
                         }
                     },
                     "400": {
-                        "description": "页面内容、ID 或版本无效",
+                        "description": "code=10001，页面内容、ID 或版本无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "404": {
-                        "description": "页面不存在",
+                        "description": "code=10004，页面不存在",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "409": {
-                        "description": "页面版本或链接标识冲突",
+                        "description": "code=10005，页面版本或链接标识冲突",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "保存失败",
+                        "description": "code=50000，保存失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -825,31 +828,31 @@
                         }
                     },
                     "400": {
-                        "description": "页面 ID 格式错误",
+                        "description": "code=10001，页面 ID 格式错误",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "404": {
-                        "description": "页面不存在",
+                        "description": "code=10004，页面不存在",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "发布失败",
+                        "description": "code=50000，发布失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -903,31 +906,31 @@
                         }
                     },
                     "400": {
-                        "description": "页面 ID 格式错误",
+                        "description": "code=10001，页面 ID 格式错误",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "404": {
-                        "description": "页面不存在",
+                        "description": "code=10004，页面不存在",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "撤回失败",
+                        "description": "code=50000，撤回失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -981,19 +984,19 @@
                         }
                     },
                     "400": {
-                        "description": "分页参数无效",
+                        "description": "code=10001，分页参数无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "查询失败",
+                        "description": "code=50000，查询失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -1050,31 +1053,31 @@
                         }
                     },
                     "400": {
-                        "description": "请求内容无效或封面图片不存在",
+                        "description": "code=10001，请求内容无效或封面图片不存在",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "409": {
-                        "description": "语言和链接标识已被占用",
+                        "description": "code=10005，语言和链接标识已被占用",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "保存失败",
+                        "description": "code=50000，保存失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -1143,31 +1146,31 @@
                         }
                     },
                     "400": {
-                        "description": "Markdown 或封面信息无效",
+                        "description": "code=10001，Markdown 或封面信息无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "409": {
-                        "description": "文章链接标识已被占用",
+                        "description": "code=10005，文章链接标识已被占用",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "413": {
-                        "description": "文件超过 2 MiB",
+                        "description": "code=10006，文件超过 2 MiB",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -1231,25 +1234,25 @@
                         }
                     },
                     "400": {
-                        "description": "Markdown 格式无效",
+                        "description": "code=10001，Markdown 格式无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "413": {
-                        "description": "文件超过 2 MiB",
+                        "description": "code=10006，文件超过 2 MiB",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -1296,25 +1299,25 @@
                         }
                     },
                     "400": {
-                        "description": "文章 ID 格式错误",
+                        "description": "code=10001，文章 ID 格式错误",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "404": {
-                        "description": "文章不存在",
+                        "description": "code=10004，文章不存在",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "查询失败",
+                        "description": "code=50000，查询失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -1378,37 +1381,37 @@
                         }
                     },
                     "400": {
-                        "description": "请求内容、文章 ID 或封面图片无效",
+                        "description": "code=10001，请求内容、文章 ID 或封面图片无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "404": {
-                        "description": "文章不存在",
+                        "description": "code=10004，文章不存在",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "409": {
-                        "description": "文章已被其他操作修改或链接标识冲突",
+                        "description": "code=10005，文章已被其他操作修改或链接标识冲突",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "保存失败",
+                        "description": "code=50000，保存失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -1462,31 +1465,31 @@
                         }
                     },
                     "400": {
-                        "description": "文章 ID 格式错误",
+                        "description": "code=10001，文章 ID 格式错误",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "404": {
-                        "description": "文章不存在",
+                        "description": "code=10004，文章不存在",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "发布失败",
+                        "description": "code=50000，发布失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -1540,31 +1543,31 @@
                         }
                     },
                     "400": {
-                        "description": "文章 ID 格式错误",
+                        "description": "code=10001，文章 ID 格式错误",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "404": {
-                        "description": "文章不存在",
+                        "description": "code=10004，文章不存在",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "撤回失败",
+                        "description": "code=50000，撤回失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -1605,7 +1608,7 @@
                         }
                     },
                     "401": {
-                        "description": "尚未登录或会话已过期",
+                        "description": "code=10002，尚未登录或会话已过期",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -1643,13 +1646,13 @@
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "查询失败",
+                        "description": "code=50000，查询失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -1706,31 +1709,31 @@
                         }
                     },
                     "400": {
-                        "description": "站点内容无效",
+                        "description": "code=10001，站点内容无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "409": {
-                        "description": "版本冲突或内容标识重复",
+                        "description": "code=10005，版本冲突或内容标识重复",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "保存失败",
+                        "description": "code=50000，保存失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -1790,25 +1793,31 @@
                         }
                     },
                     "400": {
-                        "description": "时间线数据无效",
+                        "description": "code=10001，时间线数据无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "401": {
-                        "description": "尚未登录",
+                        "description": "code=10002，尚未登录",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "403": {
-                        "description": "CSRF 校验失败",
+                        "description": "code=10003，CSRF 校验失败",
+                        "schema": {
+                            "$ref": "#/definitions/apiresponse.Envelope"
+                        }
+                    },
+                    "409": {
+                        "description": "code=10005，实习经历版本冲突",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "保存失败",
+                        "description": "code=50000，保存失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -1845,7 +1854,7 @@
                         }
                     },
                     "500": {
-                        "description": "查询失败",
+                        "description": "code=50000，查询失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -1932,19 +1941,19 @@
                         }
                     },
                     "400": {
-                        "description": "语言代码无效",
+                        "description": "code=10001，语言代码无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "404": {
-                        "description": "页面不存在或尚未发布",
+                        "description": "code=10004，页面不存在或尚未发布",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "查询失败",
+                        "description": "code=50000，查询失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -2021,13 +2030,13 @@
                         }
                     },
                     "400": {
-                        "description": "查询参数无效",
+                        "description": "code=10001，查询参数无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "查询失败",
+                        "description": "code=50000，查询失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -2080,19 +2089,19 @@
                         }
                     },
                     "400": {
-                        "description": "语言代码无效",
+                        "description": "code=10001，语言代码无效",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "404": {
-                        "description": "文章不存在",
+                        "description": "code=10004，文章不存在",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "查询失败",
+                        "description": "code=50000，查询失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -2130,7 +2139,7 @@
                         }
                     },
                     "500": {
-                        "description": "查询失败",
+                        "description": "code=50000，查询失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -2149,7 +2158,7 @@
                 "summary": "查询公开实习经历",
                 "responses": {
                     "200": {
-                        "description": "包含 items 数组的时间线",
+                        "description": "包含 version 和 items 的时间线",
                         "schema": {
                             "allOf": [
                                 {
@@ -2159,8 +2168,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object",
-                                            "additionalProperties": true
+                                            "$ref": "#/definitions/personal.TimelineInput"
                                         }
                                     }
                                 }
@@ -2168,7 +2176,7 @@
                         }
                     },
                     "500": {
-                        "description": "查询失败",
+                        "description": "code=50000，查询失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -2202,13 +2210,13 @@
                         }
                     },
                     "404": {
-                        "description": "图片不存在",
+                        "description": "code=10004，图片不存在",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
                     },
                     "500": {
-                        "description": "读取图片失败",
+                        "description": "code=50000，读取图片失败",
                         "schema": {
                             "$ref": "#/definitions/apiresponse.Envelope"
                         }
@@ -2228,6 +2236,19 @@
                     "type": "object"
                 },
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.LoginInput": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "description": "Password 是管理员密码。",
+                    "type": "string"
+                },
+                "username": {
+                    "description": "Username 是管理员用户名。",
                     "type": "string"
                 }
             }
@@ -2278,6 +2299,9 @@
                     "items": {
                         "$ref": "#/definitions/personal.Stay"
                     }
+                },
+                "version": {
+                    "type": "integer"
                 }
             }
         },
@@ -2417,6 +2441,9 @@
                     "items": {
                         "$ref": "#/definitions/personal.Internship"
                     }
+                },
+                "version": {
+                    "type": "integer"
                 }
             }
         },

@@ -25,7 +25,8 @@ YukiBloom-backend/
 │   ├── import-personal/
 │   │   └── main.go
 │   ├── import-posts/
-│   │   └── main.go
+│   │   ├── main.go
+│   │   └── main_test.go
 │   ├── import-site/
 │   │   └── main.go
 │   ├── project-map/
@@ -48,6 +49,7 @@ YukiBloom-backend/
 ├── go.sum
 └── internal/
     ├── apiresponse/
+    │   ├── errors.go
     │   └── response.go
     ├── auth/
     │   ├── handler.go
@@ -69,7 +71,8 @@ YukiBloom-backend/
     │       ├── 0002_content.sql
     │       ├── 0003_personal_content.sql
     │       ├── 0004_site_content.sql
-    │       └── 0005_site_content_revision.sql
+    │       ├── 0005_site_content_revision.sql
+    │       └── 0006_personal_content_revision.sql
     ├── httpserver/
     │   ├── auth_routes_test.go
     │   ├── router.go
@@ -83,8 +86,10 @@ YukiBloom-backend/
     │   └── store.go
     ├── personal/
     │   ├── handler.go
+    │   ├── handler_test.go
     │   ├── model.go
-    │   └── store.go
+    │   ├── store.go
+    │   └── store_test.go
     ├── posts/
     │   ├── handler.go
     │   ├── model.go
@@ -114,6 +119,7 @@ YukiBloom-backend/
 | `cmd/create-admin/main_test.go` | 验证管理员创建命令的参数和错误处理。 |
 | `cmd/import-personal/main.go` | 预检查或迁移旧 YAML 中的足迹、路线、图片和实习经历。 |
 | `cmd/import-posts/main.go` | 预检查或迁移旧 Markdown 文章及封面图片。 |
+| `cmd/import-posts/main_test.go` | 验证文章批量导入失败时回滚文章和封面图片。 |
 | `cmd/import-site/main.go` | 预检查或迁移旧站点配置、翻译、独立页面和内容图片。 |
 | `cmd/project-map/main.go` | 扫描项目文件并根据职责清单生成目录结构图和文件用途表。 |
 | `cmd/server/main.go` | 加载配置、连接 PostgreSQL、运行迁移并启动 Gin API。 |
@@ -127,6 +133,7 @@ YukiBloom-backend/
 | `docs/superpowers/specs/2026-09-24-go-content-backend-design.md` | 记录网站内容后端的整体设计、迁移范围和阶段验收标准。 |
 | `go.mod` | 声明 Go 模块路径、语言版本和直接依赖。 |
 | `go.sum` | 锁定 Go 模块依赖及其校验值。 |
+| `internal/apiresponse/errors.go` | 集中定义 API 错误类别、业务码和 HTTP 状态的映射。 |
 | `internal/apiresponse/response.go` | 定义 JSON API 统一响应结构，以及成功、失败和中止响应的写入方法。 |
 | `internal/auth/handler.go` | 处理管理员登录、会话校验、CSRF 校验、退出和登录限流。 |
 | `internal/auth/handler_test.go` | 验证登录、会话保护、CSRF 校验和重复失败限流。 |
@@ -145,6 +152,7 @@ YukiBloom-backend/
 | `internal/database/migrations/0003_personal_content.sql` | 创建足迹地点、停留、路线和实习经历数据表。 |
 | `internal/database/migrations/0004_site_content.sql` | 创建站点资料、页面、导航、友链、翻译和音乐数据表。 |
 | `internal/database/migrations/0005_site_content_revision.sql` | 保存站点内容版本，用于检测并发编辑冲突。 |
+| `internal/database/migrations/0006_personal_content_revision.sql` | 保存足迹与实习经历各自的版本号，用于检测并发编辑冲突。 |
 | `internal/httpserver/auth_routes_test.go` | 验证后台路由在未登录时拒绝访问。 |
 | `internal/httpserver/router.go` | 注册健康检查、公开内容、管理员和上传文件路由。 |
 | `internal/httpserver/router_test.go` | 验证健康检查、未知路由和代理来源识别。 |
@@ -154,8 +162,10 @@ YukiBloom-backend/
 | `internal/media/handler.go` | 处理图片上传、列表、删除和公开文件读取请求。 |
 | `internal/media/store.go` | 校验图片格式与大小，并管理图片元数据和持久化文件。 |
 | `internal/personal/handler.go` | 处理公开足迹和时间线查询，以及管理员整体保存请求。 |
+| `internal/personal/handler_test.go` | 验证个人内容接口的版本参数、成功保存和冲突响应。 |
 | `internal/personal/model.go` | 定义足迹地点、停留、路线和实习经历的数据结构。 |
 | `internal/personal/store.go` | 读取或事务化替换足迹、路线和实习经历数据。 |
+| `internal/personal/store_test.go` | 验证足迹和实习经历的旧版本写入会被拒绝。 |
 | `internal/posts/handler.go` | 处理文章公开查询、后台编辑、发布、撤回和参数校验。 |
 | `internal/posts/model.go` | 定义文章记录、编辑输入和分页响应结构。 |
 | `internal/posts/store.go` | 执行文章的公开查询、后台增改、发布和冲突检测 SQL。 |
