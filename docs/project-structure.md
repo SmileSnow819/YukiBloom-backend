@@ -44,7 +44,8 @@ YukiBloom-backend/
 │       │   ├── 2026-09-24-content-api.md
 │       │   └── 2026-09-25-code-comments-and-project-map.md
 │       └── specs/
-│           └── 2026-09-24-go-content-backend-design.md
+│           ├── 2026-09-24-go-content-backend-design.md
+│           └── 2026-09-29-cos-media-storage-design.md
 ├── go.mod
 ├── go.sum
 └── internal/
@@ -132,6 +133,7 @@ YukiBloom-backend/
 | `docs/superpowers/plans/2026-09-24-content-api.md` | 记录文章、图片和内容 API 的实施步骤。 |
 | `docs/superpowers/plans/2026-09-25-code-comments-and-project-map.md` | 记录 Go 注释规范和自动生成项目结构图的实施计划。 |
 | `docs/superpowers/specs/2026-09-24-go-content-backend-design.md` | 记录网站内容后端的整体设计、迁移范围和阶段验收标准。 |
+| `docs/superpowers/specs/2026-09-29-cos-media-storage-design.md` | 记录 COS 图片存储接入方案、兼容约定和验收范围。 |
 | `go.mod` | 声明 Go 模块路径、语言版本和直接依赖。 |
 | `go.sum` | 锁定 Go 模块依赖及其校验值。 |
 | `internal/apiresponse/errors.go` | 集中定义 API 错误类别、业务码和 HTTP 状态的映射。 |
