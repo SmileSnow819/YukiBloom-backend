@@ -42,7 +42,8 @@ YukiBloom-backend/
 │       ├── plans/
 │       │   ├── 2026-09-24-backend-foundation.md
 │       │   ├── 2026-09-24-content-api.md
-│       │   └── 2026-09-25-code-comments-and-project-map.md
+│       │   ├── 2026-09-25-code-comments-and-project-map.md
+│       │   └── 2026-09-29-cos-media-storage.md
 │       └── specs/
 │           ├── 2026-09-24-go-content-backend-design.md
 │           └── 2026-09-29-cos-media-storage-design.md
@@ -84,6 +85,9 @@ YukiBloom-backend/
     │   └── markdown.go
     ├── media/
     │   ├── handler.go
+    │   ├── storage.go
+    │   ├── storage_cos.go
+    │   ├── storage_local.go
     │   └── store.go
     ├── personal/
     │   ├── handler.go
@@ -109,12 +113,12 @@ YukiBloom-backend/
 | 文件 | 用途 |
 | --- | --- |
 | `.dockerignore` | Docker 镜像构建时忽略的本地文件和目录。 |
-| `.env.example` | 本地及 Compose 部署需要的环境变量示例。 |
+| `.env.example` | 本地及 Compose 部署所需的数据库、管理员和可选 COS 环境变量示例。 |
 | `.gitignore` | Git 忽略规则，防止提交本地配置和生成文件。 |
 | `AGENTS.md` | 提供给 AI 助手和维护者的协作、代码、安全和验证约定。 |
 | `Dockerfile` | 构建并打包 Go API 服务和内容导入命令。 |
 | `PRODUCT.md` | 记录产品目标、当前阶段、已确定决策和暂缓范围。 |
-| `README.md` | 说明本地运行、接口、内容迁移和接口验证方法。 |
+| `README.md` | 说明本地运行、COS 图片存储、接口、内容迁移和接口验证方法。 |
 | `api-docs/swagger.json` | 由 Swaggo 根据 Go 接口注释生成、可导入 Apifox 的 Swagger JSON 文档。 |
 | `api-docs/swagger.yaml` | 由 Swaggo 根据 Go 接口注释生成的 Swagger YAML 文档。 |
 | `cmd/create-admin/main.go` | 连接数据库并创建首个站点管理员账号。 |
@@ -132,6 +136,7 @@ YukiBloom-backend/
 | `docs/superpowers/plans/2026-09-24-backend-foundation.md` | 记录后端基础架构实施步骤和验证安排。 |
 | `docs/superpowers/plans/2026-09-24-content-api.md` | 记录文章、图片和内容 API 的实施步骤。 |
 | `docs/superpowers/plans/2026-09-25-code-comments-and-project-map.md` | 记录 Go 注释规范和自动生成项目结构图的实施计划。 |
+| `docs/superpowers/plans/2026-09-29-cos-media-storage.md` | 记录 COS 图片存储接入的配置、存储实现与部署说明步骤。 |
 | `docs/superpowers/specs/2026-09-24-go-content-backend-design.md` | 记录网站内容后端的整体设计、迁移范围和阶段验收标准。 |
 | `docs/superpowers/specs/2026-09-29-cos-media-storage-design.md` | 记录 COS 图片存储接入方案、兼容约定和验收范围。 |
 | `go.mod` | 声明 Go 模块路径、语言版本和直接依赖。 |
@@ -144,7 +149,7 @@ YukiBloom-backend/
 | `internal/auth/password_test.go` | 验证管理员密码哈希和密码校验行为。 |
 | `internal/auth/session.go` | 保存管理员账号和会话，并校验会话令牌及 CSRF 令牌。 |
 | `internal/auth/session_test.go` | 使用临时 PostgreSQL 验证管理员和会话数据访问。 |
-| `internal/config/config.go` | 从环境变量读取并校验服务运行配置。 |
+| `internal/config/config.go` | 从环境变量读取并校验服务、图片存储与 COS 运行配置。 |
 | `internal/config/config_test.go` | 验证环境变量配置的默认值和非法输入。 |
 | `internal/database/database.go` | 创建带连接超时的 PostgreSQL 连接池。 |
 | `internal/database/database_test.go` | 验证数据库连接配置与连接失败处理。 |
@@ -163,7 +168,10 @@ YukiBloom-backend/
 | `internal/importer/handler_test.go` | 验证 Markdown 封面未关联时会得到明确提示。 |
 | `internal/importer/markdown.go` | 解析 Markdown frontmatter、文章正文和日期字段。 |
 | `internal/media/handler.go` | 处理图片上传、列表、删除和公开文件读取请求。 |
-| `internal/media/store.go` | 校验图片格式与大小，并管理图片元数据和持久化文件。 |
+| `internal/media/storage.go` | 定义图片对象存储接口并根据配置创建本地或 COS 后端。 |
+| `internal/media/storage_cos.go` | 使用腾讯云 COS SDK 保存、删除和生成图片对象访问地址。 |
+| `internal/media/storage_local.go` | 在本地持久化目录原子写入、读取路径和删除图片对象。 |
+| `internal/media/store.go` | 校验图片格式与大小，并管理图片元数据和对象存储。 |
 | `internal/personal/handler.go` | 处理公开足迹和时间线查询，以及管理员整体保存请求。 |
 | `internal/personal/handler_test.go` | 验证个人内容接口的版本参数、成功保存和冲突响应。 |
 | `internal/personal/model.go` | 定义足迹地点、停留、路线和实习经历的数据结构。 |

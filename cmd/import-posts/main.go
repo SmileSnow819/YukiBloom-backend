@@ -137,6 +137,11 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 	if err := database.Migrate(startupCtx, pool); err != nil {
 		return fmt.Errorf("数据库迁移失败：%w", err)
 	}
+	mediaStorage, err := media.NewStorage(cfg)
+	if err != nil {
+		return fmt.Errorf("图片存储初始化失败：%w", err)
+	}
+	mediaStore := media.NewStore(pool, mediaStorage)
 	importCtx, importCancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer importCancel()
 	tx, err := pool.Begin(importCtx)
@@ -144,7 +149,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 		return fmt.Errorf("开始文章导入事务失败：%w", err)
 	}
 	committed := false
-	newFiles := make([]string, 0)
+	newObjectKeys := make([]string, 0)
 	defer func() {
 		if committed {
 			return
@@ -152,8 +157,8 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
 		_ = tx.Rollback(cleanupCtx)
-		for _, path := range newFiles {
-			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		for _, key := range newObjectKeys {
+			if err := mediaStore.RemoveObject(cleanupCtx, key); err != nil && !errors.Is(err, os.ErrNotExist) {
 				log.Printf("清理未完成导入的图片失败：%v", err)
 			}
 		}
@@ -162,7 +167,6 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 		return fmt.Errorf("锁定文章导入事务失败：%w", err)
 	}
 	postStore := posts.NewStore(pool)
-	mediaStore := media.NewStore(pool, cfg.UploadDir)
 	coverIDs := make(map[string]string)
 	created, skipped := 0, 0
 	messages := make([]string, 0, len(candidates))
@@ -181,13 +185,16 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 				if err != nil {
 					return fmt.Errorf("打开封面图片失败：%w", err)
 				}
-				image, path, uploadErr := mediaStore.SaveInTx(importCtx, tx, file)
+				image, key, uploadErr := mediaStore.SaveInTx(importCtx, tx, file)
 				file.Close()
 				if uploadErr != nil {
+					if key != "" {
+						newObjectKeys = append(newObjectKeys, key)
+					}
 					return fmt.Errorf("导入封面 %s 失败：%w", item.post.CoverPath, uploadErr)
 				}
 				id = image.ID
-				newFiles = append(newFiles, path)
+				newObjectKeys = append(newObjectKeys, key)
 				coverIDs[item.post.CoverPath] = id
 			}
 			item.post.Input.CoverMediaID = &id

@@ -44,14 +44,16 @@ type Item struct {
 }
 
 type Store struct {
-	pool *pgxpool.Pool
-	root string
+	pool    *pgxpool.Pool
+	storage ObjectStorage
 }
 
-// NewStore 创建使用指定目录的图片存储。
-// 参数：pool 是数据库连接池；root 是图片文件根目录。
+// NewStore 创建使用指定对象存储的图片存储。
+// 参数：pool 是数据库连接池；storage 是本地或云端图片对象存储。
 // 返回：配置好的 Store。
-func NewStore(pool *pgxpool.Pool, root string) *Store { return &Store{pool: pool, root: root} }
+func NewStore(pool *pgxpool.Pool, storage ObjectStorage) *Store {
+	return &Store{pool: pool, storage: storage}
+}
 
 // Save 校验图片、保存文件并登记图片信息。
 // 参数：s 是图片存储；ctx 控制数据库操作；source 是图片数据流。
@@ -61,16 +63,16 @@ func (s *Store) Save(ctx context.Context, source io.Reader) (Item, error) {
 	return item, err
 }
 
-// SaveInTx 在调用方的事务中登记图片，并返回文件路径供事务回滚时清理。
+// SaveInTx 在调用方的事务中登记图片，并返回存储键供事务回滚时清理对象。
 // 参数：s 是图片存储；ctx 控制操作；tx 是调用方事务；source 是图片数据流。
-// 返回：已保存的图片、图片文件路径，以及保存错误。
+// 返回：已保存的图片、对象存储键，以及保存错误。
 func (s *Store) SaveInTx(ctx context.Context, tx pgx.Tx, source io.Reader) (Item, string, error) {
 	return s.save(ctx, tx, source)
 }
 
 // save 校验并保存图片文件，再通过指定查询器登记元数据。
 // 参数：s 是图片存储；ctx 控制操作；query 是连接池或事务；source 是图片数据流。
-// 返回：图片记录、文件路径，以及保存错误。
+// 返回：图片记录、对象存储键，以及保存错误。
 func (s *Store) save(ctx context.Context, query interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }, source io.Reader) (Item, string, error) {
@@ -82,17 +84,30 @@ func (s *Store) save(ctx context.Context, query interface {
 	if err != nil {
 		return Item{}, "", fmt.Errorf("生成图片文件名失败：%w", err)
 	}
-	path, err := writeImageFile(s.root, key, data)
-	if err != nil {
+	if err := s.storage.Put(ctx, key, data, info.MIMEType); err != nil {
 		return Item{}, "", err
 	}
 	item, err := s.saveImageMetadata(ctx, query, key, info, int64(len(data)))
 	if err != nil {
-		_ = os.Remove(path)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cleanupCancel()
+		if cleanupErr := s.storage.Delete(cleanupCtx, key); cleanupErr != nil {
+			return Item{}, key, fmt.Errorf("%w；清理未登记图片失败：%v", err, cleanupErr)
+		}
 		return Item{}, "", err
 	}
 	item.URL = "/uploads/" + key
-	return item, path, nil
+	return item, key, nil
+}
+
+// RemoveObject 删除尚未提交媒体元数据的图片对象，用于导入回滚。
+// 参数：s 是图片存储；ctx 控制对象存储请求；key 是待删除的存储键。
+// 返回：error；删除失败时返回对象存储错误。
+func (s *Store) RemoveObject(ctx context.Context, key string) error {
+	if !validStorageKey(key) {
+		return ErrNotFound
+	}
+	return s.storage.Delete(ctx, key)
 }
 
 // readImage 限制读取大小并校验图片内容。
@@ -225,17 +240,24 @@ func (s *Store) List(ctx context.Context, page, limit int) ([]Item, int64, error
 
 // PublicFile 根据存储键查询可公开访问的图片文件信息。
 // 参数：s 是图片存储；ctx 控制数据库操作；key 是图片存储键。
-// 返回：文件路径、MIME 类型，以及键无效或查询失败时的错误。
-func (s *Store) PublicFile(ctx context.Context, key string) (string, string, error) {
+// 返回：本地文件路径、MIME 类型、外部公开 URL，以及键无效或查询失败时的错误。
+func (s *Store) PublicFile(ctx context.Context, key string) (string, string, string, error) {
 	if !validStorageKey(key) {
-		return "", "", ErrNotFound
+		return "", "", "", ErrNotFound
 	}
 	var mimeType string
 	err := s.pool.QueryRow(ctx, "SELECT mime_type FROM media WHERE storage_key=$1", key).Scan(&mimeType)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", "", ErrNotFound
+		return "", "", "", ErrNotFound
 	}
-	return filepath.Join(s.root, key), mimeType, err
+	if err != nil {
+		return "", "", "", err
+	}
+	publicURL := s.storage.PublicURL(key)
+	if publicURL != "" {
+		return "", mimeType, publicURL, nil
+	}
+	return s.storage.LocalPath(key), mimeType, "", nil
 }
 
 // DeleteUnused 删除未被内容引用的图片记录及文件。
@@ -284,8 +306,10 @@ func (s *Store) DeleteUnused(ctx context.Context, id string) error {
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
-	if err := os.Remove(filepath.Join(s.root, key)); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("图片记录已删除，但清理文件失败：%w", err)
+	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cleanupCancel()
+	if err := s.storage.Delete(cleanupCtx, key); err != nil {
+		return fmt.Errorf("图片记录已删除，但清理图片对象失败：%w", err)
 	}
 	return nil
 }

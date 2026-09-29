@@ -60,13 +60,17 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if err := database.Migrate(startupCtx, pool); err != nil {
 		return fmt.Errorf("数据库迁移失败：%w", err)
 	}
+	mediaStorage, err := media.NewStorage(cfg)
+	if err != nil {
+		return fmt.Errorf("图片存储初始化失败：%w", err)
+	}
 
 	server := &http.Server{
 		Addr: ":" + cfg.Port,
 		Handler: httpserver.NewRouter(
 			auth.NewHandler(auth.NewStore(pool), cfg.CookieSecure),
 			posts.NewHandler(posts.NewStore(pool)),
-			media.NewHandler(media.NewStore(pool, cfg.UploadDir)),
+			media.NewHandler(media.NewStore(pool, mediaStorage)),
 			importer.NewHandler(posts.NewStore(pool)),
 			personal.NewHandler(personal.NewStore(pool)),
 			sitecontent.NewHandler(sitecontent.NewStore(pool)),

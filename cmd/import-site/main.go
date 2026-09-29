@@ -120,7 +120,11 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 		return fmt.Errorf("读取站点内容版本失败：%w", err)
 	}
 	content.Version = current.Version
-	mediaStore := media.NewStore(pool, cfg.UploadDir)
+	mediaStorage, err := media.NewStorage(cfg)
+	if err != nil {
+		return fmt.Errorf("图片存储初始化失败：%w", err)
+	}
+	mediaStore := media.NewStore(pool, mediaStorage)
 	imageURLs := make(map[string]string)
 	newMedia := make([]string, 0)
 	for _, pointer := range assets {

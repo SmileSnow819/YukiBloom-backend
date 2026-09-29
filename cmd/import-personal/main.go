@@ -121,7 +121,11 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 	if hasData && !settings.replace {
 		return errors.New("数据库已有足迹或实习数据。为避免覆盖后台修改，确认替换后再添加 -replace")
 	}
-	mediaStore := media.NewStore(pool, cfg.UploadDir)
+	mediaStorage, err := media.NewStorage(cfg)
+	if err != nil {
+		return fmt.Errorf("图片存储初始化失败：%w", err)
+	}
+	mediaStore := media.NewStore(pool, mediaStorage)
 	newMedia := make([]string, 0)
 	imageCache := make(map[string]string)
 	for routeIndex := range footprintData.Routes {

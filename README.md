@@ -16,6 +16,25 @@ curl http://127.0.0.1:8080/api/v1/health
 
 健康接口正常时返回 `{"status":"正常"}`。API 只绑定主机的 `127.0.0.1`，数据库不映射主机端口。数据库和图片分别保存在 Compose 持久化卷中。与 Astro 一起部署时，由统一的反向代理暴露网站入口。
 
+## 图片存储：本地或 COS
+
+默认 `MEDIA_STORAGE=local`，开发时图片写入 `UPLOAD_DIR`。要使用腾讯云 COS，创建通用存储桶，建议选择与 CVM 相同的地域和标准存储；目前配置的桶为 `yukibloom-1379189818`，地域为 `ap-shanghai`。桶内图片供博客访客读取时，设置为“公有读私有写”，禁止匿名写入。所有桶对象都可通过 URL 读取，因此只将公开内容图片放在这个桶中。
+
+复制 `.env.example` 后，将 `MEDIA_STORAGE` 改为 `cos`，保留或填写以下配置，并在服务器 `.env` 中填入 COS 服务端凭证：
+
+```dotenv
+MEDIA_STORAGE=cos
+COS_BUCKET=yukibloom-1379189818
+COS_REGION=ap-shanghai
+COS_PUBLIC_BASE_URL=https://yukibloom-1379189818.cos.ap-shanghai.myqcloud.com
+COS_SECRET_ID=服务器专用的SecretId
+COS_SECRET_KEY=服务器专用的SecretKey
+```
+
+建议在腾讯云访问管理中创建仅对此桶对象有上传、删除权限的服务身份；不要使用主账号密钥，不要将真实凭证提交到仓库。Compose 会把这些变量传给 API。上传仍由 Go API 校验图片并保存 PostgreSQL 元数据，访客访问现有 `/uploads/{key}` 地址时，API 会检查图片记录并重定向到 COS。文章、个人内容和站点内容导入命令也使用相同的存储配置。
+
+COS 免费额度仅覆盖对应额度内的标准存储容量，不代表外网下行流量、请求等项目均免费。请在腾讯云费用中心查看 COS 实际账单；不要因启用 COS 而在服务器环境中暴露或提交密钥。
+
 已有 PostgreSQL 时，也可以直接运行：
 
 ```bash
@@ -52,7 +71,7 @@ docker compose exec \
 | `10008` | 不支持的请求方法 | 405 |
 | `50000` | 服务内部错误 | 500 |
 
-前端可按 `code` 判断错误类别，并直接展示 `message`，无需硬编码错误文案。图片文件成功读取时返回原始二进制内容。
+前端可按 `code` 判断错误类别，并直接展示 `message`，无需硬编码错误文案。图片文件在本地存储模式下返回原始二进制内容；COS 模式下公开图片地址会重定向到 COS。
 
 ## 接口文档与 Apifox
 
