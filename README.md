@@ -14,7 +14,7 @@ docker compose up --build -d
 curl http://127.0.0.1:8080/api/v1/health
 ```
 
-健康接口正常时返回 `{"status":"正常"}`。API 只绑定主机的 `127.0.0.1`，数据库不映射主机端口。数据库和图片分别保存在 Compose 持久化卷中。与 Astro 一起部署时，由统一的反向代理暴露网站入口。
+健康接口正常时返回 `{"status":"正常"}`。API 只绑定主机的 `127.0.0.1`，数据库不映射主机端口。数据库和图片分别保存在 Compose 持久化卷中。与 Astro 一起部署时，Compose 会把 API 同时接入 backend 私网和 `yukibloom-public` 网络；PostgreSQL 只留在 backend 私网，Astro 与统一反向代理通过 `api:8080` 访问 Go API。
 
 ## 图片存储：本地或 COS
 

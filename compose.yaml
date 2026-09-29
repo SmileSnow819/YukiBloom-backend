@@ -43,7 +43,14 @@ services:
     restart: unless-stopped
     volumes:
       - media_data:/data/uploads
+    networks:
+      - default
+      - yukibloom-public
 
 volumes:
   postgres_data:
   media_data:
+
+networks:
+  yukibloom-public:
+    name: yukibloom-public
