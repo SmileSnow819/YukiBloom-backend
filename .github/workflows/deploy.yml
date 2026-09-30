@@ -37,6 +37,7 @@ jobs:
     name: 发布并部署 main 镜像
     needs: verify
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    environment: production
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -22,7 +22,7 @@ curl http://127.0.0.1:8080/api/v1/health
 
 服务器首次准备时，将仓库的 `compose.yaml` 放到 `/srv/YukiBloom-backend`，在该目录创建仅服务器可读的 `.env`，填入数据库密码和 COS 凭证，然后运行 `docker compose up -d db` 初始化 PostgreSQL。部署用户需要能执行 Docker 命令。GHCR 镜像如果设为私有，还要在服务器配置只读 GHCR 登录凭据；也可以在首次发布后将 Container package 设为公开。
 
-在 GitHub 仓库的 **Settings → Secrets and variables → Actions** 设置以下 Secrets：
+在 GitHub 仓库的 **Settings → Environments** 创建名为 `production` 的环境，并把允许部署的分支限制为 `main`。进入该环境的 **Secrets** 标签（不是 Variables）添加以下 Environment secrets：
 
 | Secret | 内容 |
 | --- | --- |
