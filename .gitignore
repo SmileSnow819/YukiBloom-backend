@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+/bin/
+/server
+.DS_Store
+/yukibloom-api.tar
