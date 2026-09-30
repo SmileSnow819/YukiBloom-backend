@@ -18,22 +18,37 @@ curl http://127.0.0.1:8080/api/v1/health
 
 ### 自动构建与部署
 
-`.github/workflows/deploy.yml` 在 PR 指向 `main` 时运行 `go test ./...` 和 `go vet ./...`；PR 合并到 `main` 后，检查通过才会构建并推送 GHCR 镜像，然后通过 SSH 在服务器更新 API。镜像同时使用 `main` 和 Git 提交 SHA 标签，实际部署使用 SHA 标签，便于确认版本和手动回滚。手动触发 workflow 时需要选择 `main` 分支。
+`.github/workflows/deploy.yml` 在 PR 指向 `main` 时运行 `go test ./...` 和 `go vet ./...`；合并到 GitHub `main` 后，检查通过会把代码推送到 CNB 的 `longlian.online/yukibloom-backend`。CNB 的 [`.cnb.yml`](.cnb.yml) 随后再次检查代码、构建并推送 `docker.cnb.cool/longlian.online/yukibloom-backend:main`，最后通过 SSH 更新服务器 API。GitHub 是代码源，CNB 负责构建与部署。
 
-服务器首次准备时，将仓库的 `compose.yaml` 放到 `/srv/YukiBloom-backend`，在该目录创建仅服务器可读的 `.env`，填入数据库密码和 COS 凭证，然后运行 `docker compose up -d db` 初始化 PostgreSQL。部署用户需要能执行 Docker 命令。GHCR 镜像如果设为私有，还要在服务器配置只读 GHCR 登录凭据；也可以在首次发布后将 Container package 设为公开。
+服务器首次准备时，将仓库的 `compose.yaml` 放到 `/srv/YukiBloom-backend`，在该目录创建仅服务器可读的 `.env`，填入数据库密码和 COS 凭证，然后运行 `docker compose up -d db` 初始化 PostgreSQL。部署用户需要能执行 Docker 命令。若 CNB 仓库或镜像保持私有，服务器还需先用 CNB 的只读制品令牌登录一次：
 
-在 GitHub 仓库的 **Settings → Environments** 创建名为 `production` 的环境，并把允许部署的分支限制为 `main`。进入该环境的 **Secrets** 标签（不是 Variables）添加以下 Environment secrets：
+```sh
+docker login docker.cnb.cool -u cnb
+```
 
-| Secret | 内容 |
-| --- | --- |
-| `SERVER_HOST` | 服务器 IP 或域名 |
-| `SERVER_USER` | 允许 SSH 登录并执行 Docker 命令的部署用户 |
-| `SERVER_SSH_KEY` | 对应部署用户公钥的 SSH 私钥 |
-| `SERVER_FINGERPRINT` | 服务器 SSH 主机公钥的 SHA256 指纹 |
+按提示输入令牌，令牌会保存在部署用户的 Docker 配置中。CNB 令牌可在 CNB 的访问令牌页面创建，权限只需 Docker 制品读取。
 
-SSH 公钥需预先安装到服务器部署用户的 `authorized_keys`；主机指纹应通过可信的服务器控制台或已有安全连接核对。不要把私钥、数据库密码或 COS 密钥写进 workflow 文件。
+#### GitHub → CNB 同步
 
-自动部署只更新 `api` 容器，不会停止 PostgreSQL 或删除其持久化卷。服务启动时会执行数据库迁移。若需回滚，在服务器目录用已知的旧提交 SHA 执行：
+在 CNB 创建仅用于同步的访问令牌，授予 `longlian.online/yukibloom-backend` 代码读写权限；在 GitHub 仓库 **Settings → Secrets and variables → Actions → New repository secret** 添加 `CNB_SYNC_TOKEN`。不要把 CLI 登录令牌用于 CI。
+
+#### CNB 部署密钥
+
+CNB 的密钥仓库 `longlian.online/env` 中创建 `yukibloom-backend.yml`，文件内容如下。将 SSH 私钥先做 Base64 编码后填入 `SERVER_SSH_KEY_BASE64`；限制规则让这个文件只允许该仓库的 `main` push 流水线读取。
+
+```yaml
+allow_slugs: longlian.online/yukibloom-backend
+allow_events: push
+allow_branches: main
+SERVER_HOST: 服务器公网 IP 或 SSH 域名
+SERVER_USER: 部署用户
+SERVER_SSH_KEY_BASE64: Base64 编码后的 SSH 私钥
+SERVER_FINGERPRINT: SHA256:服务器主机指纹
+```
+
+SSH 公钥需预先安装到服务器部署用户的 `authorized_keys`；主机指纹应通过可信的服务器控制台或已有安全连接核对。私钥、令牌、数据库密码和 COS 密钥不要提交到 Git。
+
+自动部署只更新 `api` 容器，不会停止 PostgreSQL 或删除其持久化卷。服务启动时会执行数据库迁移。每次构建会同时发布 `main` 和完整提交 SHA 标签，部署使用完整提交 SHA；回滚时可在服务器目录指定旧提交 SHA：
 
 ```bash
 IMAGE_TAG=<旧提交SHA> docker compose pull api
