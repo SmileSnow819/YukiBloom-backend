@@ -10,6 +10,9 @@
 YukiBloom-backend/
 ├── .dockerignore
 ├── .env.example
+├── .github/
+│   └── workflows/
+│       └── deploy.yml
 ├── .gitignore
 ├── AGENTS.md
 ├── Dockerfile
@@ -115,11 +118,12 @@ YukiBloom-backend/
 | --- | --- |
 | `.dockerignore` | Docker 镜像构建时忽略的本地文件和目录。 |
 | `.env.example` | 本地及 Compose 部署所需的数据库、管理员和 COS 环境变量示例。 |
+| `.github/workflows/deploy.yml` | 在 main 更新后运行 Go 检查、构建并推送 GHCR 镜像，再通过 SSH 部署到服务器。 |
 | `.gitignore` | Git 忽略规则，防止提交本地配置和生成文件。 |
 | `AGENTS.md` | 提供给 AI 助手和维护者的协作、代码、安全和验证约定。 |
 | `Dockerfile` | 构建并打包 Go API 服务和内容导入命令。 |
 | `PRODUCT.md` | 记录产品目标、当前阶段、已确定决策和暂缓范围。 |
-| `README.md` | 说明本地运行、COS 图片存储、接口、内容迁移和接口验证方法。 |
+| `README.md` | 说明本地运行、自动镜像部署、COS 图片存储、接口、内容迁移和接口验证方法。 |
 | `api-docs/swagger.json` | 由 Swaggo 根据 Go 接口注释生成、可导入 Apifox 的 Swagger JSON 文档。 |
 | `api-docs/swagger.yaml` | 由 Swaggo 根据 Go 接口注释生成的 Swagger YAML 文档。 |
 | `cmd/create-admin/main.go` | 连接数据库并创建首个站点管理员账号。 |
@@ -131,7 +135,7 @@ YukiBloom-backend/
 | `cmd/project-map/main.go` | 扫描项目文件并根据职责清单生成目录结构图和文件用途表。 |
 | `cmd/server/main.go` | 加载配置、连接 PostgreSQL、运行迁移并启动 Gin API。 |
 | `cmd/server/main_test.go` | 验证 API 服务启动配置的错误信息不会泄露敏感值。 |
-| `compose.yaml` | 定义 PostgreSQL 持久化卷和 Go API 的本地 Compose 服务。 |
+| `compose.yaml` | 定义 PostgreSQL 持久化卷和支持本地构建或指定 GHCR 版本的 Go API Compose 服务。 |
 | `docs/project-files.json` | 维护项目每个文件的用途说明，供结构图生成命令读取。 |
 | `docs/project-structure.md` | 由生成命令产出的目录树和逐文件职责索引。 |
 | `docs/superpowers/plans/2026-09-24-backend-foundation.md` | 记录后端基础架构实施步骤和验证安排。 |

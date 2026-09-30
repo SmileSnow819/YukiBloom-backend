@@ -16,7 +16,31 @@ curl http://127.0.0.1:8080/api/v1/health
 
 健康接口正常时返回 `{"status":"正常"}`。API 只绑定主机的 `127.0.0.1`，数据库不映射主机端口。PostgreSQL 使用 Compose 持久化卷；图片统一保存在 COS。与 Astro 一起部署时，Compose 会把 API 同时接入 backend 私网和 `yukibloom-public` 网络；PostgreSQL 只留在 backend 私网，Astro 与统一反向代理通过 `api:8080` 访问 Go API。
 
-### 更新 Docker 中的代码
+### 自动构建与部署
+
+`.github/workflows/deploy.yml` 在 PR 指向 `main` 时运行 `go test ./...` 和 `go vet ./...`；PR 合并到 `main` 后，检查通过才会构建并推送 GHCR 镜像，然后通过 SSH 在服务器更新 API。镜像同时使用 `main` 和 Git 提交 SHA 标签，实际部署使用 SHA 标签，便于确认版本和手动回滚。手动触发 workflow 时需要选择 `main` 分支。
+
+服务器首次准备时，将仓库的 `compose.yaml` 放到 `/srv/YukiBloom-backend`，在该目录创建仅服务器可读的 `.env`，填入数据库密码和 COS 凭证，然后运行 `docker compose up -d db` 初始化 PostgreSQL。部署用户需要能执行 Docker 命令。GHCR 镜像如果设为私有，还要在服务器配置只读 GHCR 登录凭据；也可以在首次发布后将 Container package 设为公开。
+
+在 GitHub 仓库的 **Settings → Environments** 创建名为 `production` 的环境，并把允许部署的分支限制为 `main`。进入该环境的 **Secrets** 标签（不是 Variables）添加以下 Environment secrets：
+
+| Secret | 内容 |
+| --- | --- |
+| `SERVER_HOST` | 服务器 IP 或域名 |
+| `SERVER_USER` | 允许 SSH 登录并执行 Docker 命令的部署用户 |
+| `SERVER_SSH_KEY` | 对应部署用户公钥的 SSH 私钥 |
+| `SERVER_FINGERPRINT` | 服务器 SSH 主机公钥的 SHA256 指纹 |
+
+SSH 公钥需预先安装到服务器部署用户的 `authorized_keys`；主机指纹应通过可信的服务器控制台或已有安全连接核对。不要把私钥、数据库密码或 COS 密钥写进 workflow 文件。
+
+自动部署只更新 `api` 容器，不会停止 PostgreSQL 或删除其持久化卷。服务启动时会执行数据库迁移。若需回滚，在服务器目录用已知的旧提交 SHA 执行：
+
+```bash
+IMAGE_TAG=<旧提交SHA> docker compose pull api
+IMAGE_TAG=<旧提交SHA> docker compose up -d --no-build api
+```
+
+### 手动更新 Docker 中的代码
 
 代码更新到本机或服务器后，在**后端仓库根目录**重新构建并启动 API 容器：
 
