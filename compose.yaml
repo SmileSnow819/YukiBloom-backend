@@ -50,3 +50,4 @@ volumes:
 networks:
   yukibloom-public:
     name: yukibloom-public
+    external: true
