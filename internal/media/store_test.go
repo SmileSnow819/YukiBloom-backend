@@ -84,6 +84,13 @@ func TestReadImageAppliesJPEGEXIFOrientation(t *testing.T) {
 	}
 	input := append([]byte{0xff, 0xd8, 0xff, 0xe1, 0, byte(len(exif) + 2)}, exif...)
 	input = append(input, plain.Bytes()[2:]...)
+	validated, err := Validate(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if validated.Width != 12 || validated.Height != 16 {
+		t.Fatalf("校验结果未应用 EXIF 方向：%+v", validated)
+	}
 	output, info, err := readImage(bytes.NewReader(input))
 	if err != nil {
 		t.Fatal(err)
@@ -110,5 +117,40 @@ func TestReadImageKeepsExistingWebPBytes(t *testing.T) {
 	}
 	if !bytes.Equal(output, input.Bytes()) || info.MIMEType != "image/webp" || info.Extension != ".webp" {
 		t.Fatalf("现有 WebP 应原样保存：info=%+v", info)
+	}
+}
+
+func TestOrientImageMapsAllEXIFOrientations(t *testing.T) {
+	source := image.NewNRGBA(image.Rect(0, 0, 2, 3))
+	for y := 0; y < 3; y++ {
+		for x := 0; x < 2; x++ {
+			source.SetNRGBA(x, y, color.NRGBA{R: uint8(y*2 + x + 1), A: 255})
+		}
+	}
+	wants := map[int][][]uint8{
+		2: {{2, 1}, {4, 3}, {6, 5}},
+		3: {{6, 5}, {4, 3}, {2, 1}},
+		4: {{5, 6}, {3, 4}, {1, 2}},
+		5: {{1, 3, 5}, {2, 4, 6}},
+		6: {{5, 3, 1}, {6, 4, 2}},
+		7: {{6, 4, 2}, {5, 3, 1}},
+		8: {{2, 4, 6}, {1, 3, 5}},
+	}
+	for orientation, rows := range wants {
+		oriented := orientImage(source, orientation)
+		if got := oriented.Bounds().Dy(); got != len(rows) {
+			t.Fatalf("方向 %d 高度=%d，期望 %d", orientation, got, len(rows))
+		}
+		for y, row := range rows {
+			if got := oriented.Bounds().Dx(); got != len(row) {
+				t.Fatalf("方向 %d 宽度=%d，期望 %d", orientation, got, len(row))
+			}
+			for x, want := range row {
+				red, _, _, _ := oriented.At(x, y).RGBA()
+				if got := uint8(red >> 8); got != want {
+					t.Fatalf("方向 %d 的像素 (%d,%d)=%d，期望 %d", orientation, x, y, got, want)
+				}
+			}
+		}
 	}
 }

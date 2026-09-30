@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
@@ -121,21 +122,12 @@ func readImage(source io.Reader) ([]byte, ImageInfo, error) {
 	if len(data) > MaxUploadBytes {
 		return nil, ImageInfo{}, ErrTooLarge
 	}
-	info, err := Validate(data)
+	info, decoded, err := decodeValidatedImage(data)
 	if err != nil {
 		return nil, ImageInfo{}, err
 	}
 	if info.MIMEType == "image/webp" {
 		return data, info, nil
-	}
-	var decoded image.Image
-	if info.MIMEType == "image/jpeg" {
-		decoded, err = jpegn.Decode(bytes.NewReader(data), &jpegn.Options{AutoRotate: true})
-	} else {
-		decoded, _, err = image.Decode(bytes.NewReader(data))
-	}
-	if err != nil {
-		return nil, ImageInfo{}, ErrInvalidImage
 	}
 	var output bytes.Buffer
 	if err := webpencoder.Encode(&output, decoded, webpencoder.Options{Quality: 80, Method: 4}); err != nil {
@@ -178,25 +170,101 @@ type ImageInfo struct {
 // 参数：data 是待校验的图片字节。
 // 返回：图片格式和尺寸信息；校验失败时返回错误。
 func Validate(data []byte) (ImageInfo, error) {
+	info, _, err := decodeValidatedImage(data)
+	return info, err
+}
+
+// decodeValidatedImage 检查图片大小、格式和像素尺寸，并只完整解码一次。
+// 参数：data 是待校验的图片字节。
+// 返回：图片格式和尺寸信息、解码后的图像；校验或解码失败时返回对应错误。
+func decodeValidatedImage(data []byte) (ImageInfo, image.Image, error) {
 	if len(data) > MaxUploadBytes {
-		return ImageInfo{}, ErrTooLarge
+		return ImageInfo{}, nil, ErrTooLarge
 	}
 	config, format, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
-		return ImageInfo{}, ErrInvalidImage
+		return ImageInfo{}, nil, ErrInvalidImage
 	}
 	if config.Width < 1 || config.Height < 1 || int64(config.Width)*int64(config.Height) > maxImagePixels {
-		return ImageInfo{}, ErrDimensions
-	}
-	_, decodedFormat, err := image.Decode(bytes.NewReader(data))
-	if err != nil || decodedFormat != format {
-		return ImageInfo{}, ErrInvalidImage
+		return ImageInfo{}, nil, ErrDimensions
 	}
 	mimeType, extension, ok := imageType(format)
 	if !ok {
-		return ImageInfo{}, ErrInvalidImage
+		return ImageInfo{}, nil, ErrInvalidImage
 	}
-	return ImageInfo{MIMEType: mimeType, Extension: extension, Width: config.Width, Height: config.Height}, nil
+	decoded, decodedFormat, err := image.Decode(bytes.NewReader(data))
+	if err != nil || decodedFormat != format {
+		return ImageInfo{}, nil, ErrInvalidImage
+	}
+	if format == "jpeg" {
+		if exif, exifErr := jpegn.DecodeExif(bytes.NewReader(data)); exifErr == nil {
+			decoded = orientImage(decoded, exif.Orientation)
+		}
+	}
+	info := ImageInfo{
+		MIMEType: mimeType, Extension: extension,
+		Width: decoded.Bounds().Dx(), Height: decoded.Bounds().Dy(),
+	}
+	return info, decoded, nil
+}
+
+type orientedImage struct {
+	source      image.Image
+	orientation int
+	bounds      image.Rectangle
+}
+
+// orientImage 返回按 JPEG EXIF 方向显示的图像视图，不复制像素数据。
+// 参数：source 是已解码图像；orientation 是 EXIF 方向值。
+// 返回：应用方向后的图像视图；方向值无效或无需旋转时返回原图。
+func orientImage(source image.Image, orientation int) image.Image {
+	if orientation < 2 || orientation > 8 {
+		return source
+	}
+	bounds := source.Bounds()
+	width, height := bounds.Dx(), bounds.Dy()
+	if orientation >= 5 {
+		width, height = height, width
+	}
+	return orientedImage{
+		source: source, orientation: orientation,
+		bounds: image.Rect(0, 0, width, height),
+	}
+}
+
+// ColorModel 返回原图的颜色模型。
+// 参数：无。
+// 返回：原图的颜色模型。
+func (i orientedImage) ColorModel() color.Model { return i.source.ColorModel() }
+
+// Bounds 返回应用方向后的图像边界。
+// 参数：无。
+// 返回：以原点为左上角的图像边界。
+func (i orientedImage) Bounds() image.Rectangle { return i.bounds }
+
+// At 将输出坐标映射到原图并返回对应像素。
+// 参数：x 和 y 是方向变换后图像中的像素坐标。
+// 返回：原图中对应位置的颜色。
+func (i orientedImage) At(x, y int) color.Color {
+	bounds := i.source.Bounds()
+	width, height := bounds.Dx(), bounds.Dy()
+	switch i.orientation {
+	case 2:
+		x = width - 1 - x
+	case 3:
+		x, y = width-1-x, height-1-y
+	case 4:
+		y = height - 1 - y
+	case 5:
+		x, y = y, x
+	case 6:
+		x, y = y, height-1-x
+	case 7:
+		x, y = width-1-y, height-1-x
+	case 8:
+		x, y = width-1-y, x
+	}
+	return i.source.At(bounds.Min.X+x, bounds.Min.Y+y)
 }
 
 // List 分页查询图片记录及总数。
