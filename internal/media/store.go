@@ -11,8 +11,6 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -49,7 +47,7 @@ type Store struct {
 }
 
 // NewStore 创建使用指定对象存储的图片存储。
-// 参数：pool 是数据库连接池；storage 是本地或云端图片对象存储。
+// 参数：pool 是数据库连接池；storage 是 COS 图片对象存储。
 // 返回：配置好的 Store。
 func NewStore(pool *pgxpool.Pool, storage ObjectStorage) *Store {
 	return &Store{pool: pool, storage: storage}
@@ -70,7 +68,7 @@ func (s *Store) SaveInTx(ctx context.Context, tx pgx.Tx, source io.Reader) (Item
 	return s.save(ctx, tx, source)
 }
 
-// save 校验并保存图片文件，再通过指定查询器登记元数据。
+// save 校验并保存图片对象，再通过指定查询器登记元数据。
 // 参数：s 是图片存储；ctx 控制操作；query 是连接池或事务；source 是图片数据流。
 // 返回：图片记录、对象存储键，以及保存错误。
 func (s *Store) save(ctx context.Context, query interface {
@@ -96,7 +94,7 @@ func (s *Store) save(ctx context.Context, query interface {
 		}
 		return Item{}, "", err
 	}
-	item.URL = "/uploads/" + key
+	item.URL = s.storage.PublicURL(key)
 	return item, key, nil
 }
 
@@ -126,41 +124,6 @@ func readImage(source io.Reader) ([]byte, ImageInfo, error) {
 		return nil, ImageInfo{}, err
 	}
 	return data, info, nil
-}
-
-// writeImageFile 以临时文件方式安全写入图片，再原子替换为正式文件。
-// 参数：root 是图片目录；key 是生成后的存储键；data 是已校验的图片内容。
-// 返回：正式图片文件路径；创建、写入或重命名失败时返回错误。
-func writeImageFile(root, key string, data []byte) (string, error) {
-	if err := os.MkdirAll(root, 0o750); err != nil {
-		return "", fmt.Errorf("创建图片目录失败：%w", err)
-	}
-	temp, err := os.CreateTemp(root, ".upload-*")
-	if err != nil {
-		return "", fmt.Errorf("创建图片临时文件失败：%w", err)
-	}
-	tempPath := temp.Name()
-	defer os.Remove(tempPath)
-	if err := temp.Chmod(0o640); err != nil {
-		_ = temp.Close()
-		return "", fmt.Errorf("设置图片文件权限失败：%w", err)
-	}
-	if _, err := temp.Write(data); err != nil {
-		_ = temp.Close()
-		return "", fmt.Errorf("写入图片失败：%w", err)
-	}
-	if err := temp.Sync(); err != nil {
-		_ = temp.Close()
-		return "", fmt.Errorf("保存图片失败：%w", err)
-	}
-	if err := temp.Close(); err != nil {
-		return "", fmt.Errorf("关闭图片文件失败：%w", err)
-	}
-	path := filepath.Join(root, key)
-	if err := os.Rename(tempPath, path); err != nil {
-		return "", fmt.Errorf("保存图片文件失败：%w", err)
-	}
-	return path, nil
 }
 
 // saveImageMetadata 将图片文件信息写入 media 表。
@@ -232,32 +195,33 @@ func (s *Store) List(ctx context.Context, page, limit int) ([]Item, int64, error
 		if err := rows.Scan(&item.ID, &key, &item.MIMEType, &item.SizeBytes, &item.Width, &item.Height, &item.CreatedAt); err != nil {
 			return nil, 0, err
 		}
-		item.URL = "/uploads/" + key
+		item.URL = s.storage.PublicURL(key)
 		items = append(items, item)
 	}
 	return items, total, rows.Err()
 }
 
-// PublicFile 根据存储键查询可公开访问的图片文件信息。
-// 参数：s 是图片存储；ctx 控制数据库操作；key 是图片存储键。
-// 返回：本地文件路径、MIME 类型、外部公开 URL，以及键无效或查询失败时的错误。
-func (s *Store) PublicFile(ctx context.Context, key string) (string, string, string, error) {
-	if !validStorageKey(key) {
-		return "", "", "", ErrNotFound
+// PublicURLsByIDs 批量查询媒体 ID 对应的公开 COS 地址。
+// 参数：s 是图片存储；ctx 控制数据库操作；ids 是媒体记录 ID 列表。
+// 返回：媒体 ID 到公开地址的映射；查询失败时返回错误。
+func (s *Store) PublicURLsByIDs(ctx context.Context, ids []string) (map[string]string, error) {
+	urls := make(map[string]string, len(ids))
+	if len(ids) == 0 {
+		return urls, nil
 	}
-	var mimeType string
-	err := s.pool.QueryRow(ctx, "SELECT mime_type FROM media WHERE storage_key=$1", key).Scan(&mimeType)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", "", "", ErrNotFound
-	}
+	rows, err := s.pool.Query(ctx, "SELECT id, storage_key FROM media WHERE id::text = ANY($1::text[])", ids)
 	if err != nil {
-		return "", "", "", err
+		return nil, err
 	}
-	publicURL := s.storage.PublicURL(key)
-	if publicURL != "" {
-		return "", mimeType, publicURL, nil
+	defer rows.Close()
+	for rows.Next() {
+		var id, key string
+		if err := rows.Scan(&id, &key); err != nil {
+			return nil, err
+		}
+		urls[id] = s.storage.PublicURL(key)
 	}
-	return s.storage.LocalPath(key), mimeType, "", nil
+	return urls, rows.Err()
 }
 
 // DeleteUnused 删除未被内容引用的图片记录及文件。

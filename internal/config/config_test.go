@@ -5,15 +5,35 @@ import (
 	"testing"
 )
 
+func loadTestConfig(getenv func(string) string) (Config, error) {
+	return Load(func(key string) string {
+		if value := getenv(key); value != "" {
+			return value
+		}
+		switch key {
+		case "COS_BUCKET":
+			return "test-bucket"
+		case "COS_REGION":
+			return "ap-test-1"
+		case "COS_SECRET_ID":
+			return "test-secret-id"
+		case "COS_SECRET_KEY":
+			return "test-secret-key"
+		default:
+			return ""
+		}
+	})
+}
+
 func TestLoadRequiresDatabaseURL(t *testing.T) {
-	_, err := Load(func(string) string { return "" })
+	_, err := loadTestConfig(func(string) string { return "" })
 	if err == nil || !strings.Contains(err.Error(), "DATABASE_URL 不能为空") {
 		t.Fatalf("expected DATABASE_URL error, got %v", err)
 	}
 }
 
 func TestLoadDefaultsPort(t *testing.T) {
-	cfg, err := Load(func(key string) string {
+	cfg, err := loadTestConfig(func(key string) string {
 		if key == "DATABASE_URL" {
 			return "postgres://user:pass@localhost:5432/blog"
 		}
@@ -28,7 +48,7 @@ func TestLoadDefaultsPort(t *testing.T) {
 }
 
 func TestLoadRejectsInvalidPort(t *testing.T) {
-	_, err := Load(func(key string) string {
+	_, err := loadTestConfig(func(key string) string {
 		if key == "DATABASE_URL" {
 			return "postgres://user:pass@localhost:5432/blog"
 		}
@@ -50,7 +70,7 @@ func TestLoadRequiresExplicitOptOutForInsecureCookie(t *testing.T) {
 		{value: "", want: true},
 		{value: "false", want: false},
 	} {
-		cfg, err := Load(func(key string) string {
+		cfg, err := loadTestConfig(func(key string) string {
 			if key == "DATABASE_URL" {
 				return "postgres://user:pass@localhost:5432/blog"
 			}
@@ -69,7 +89,7 @@ func TestLoadRequiresExplicitOptOutForInsecureCookie(t *testing.T) {
 }
 
 func TestLoadRejectsInvalidCookieSecure(t *testing.T) {
-	_, err := Load(func(key string) string {
+	_, err := loadTestConfig(func(key string) string {
 		switch key {
 		case "DATABASE_URL":
 			return "postgres://user:pass@localhost:5432/blog"

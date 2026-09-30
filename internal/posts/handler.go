@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/SmileSnow819/YukiBloom-backend/internal/apiresponse"
+	"github.com/SmileSnow819/YukiBloom-backend/internal/media"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,12 +21,21 @@ var (
 	validUUID   = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
 )
 
-type Handler struct{ store *Store }
+type Handler struct {
+	store      *Store
+	mediaStore *media.Store
+}
 
 // NewHandler 创建使用文章存储的 HTTP 处理器。
-// 参数：store 是文章数据存储。
+// 参数：store 是文章数据存储；mediaStores 是用于解析封面 COS 地址的媒体存储。
 // 返回：配置好的 Handler。
-func NewHandler(store *Store) *Handler { return &Handler{store: store} }
+func NewHandler(store *Store, mediaStores ...*media.Store) *Handler {
+	handler := &Handler{store: store}
+	if len(mediaStores) > 0 {
+		handler.mediaStore = mediaStores[0]
+	}
+	return handler
+}
 
 // PublicList 校验筛选和分页参数，并返回已发布文章列表。
 // 参数：h 是文章处理器；c 是当前 HTTP 请求上下文。
@@ -39,7 +49,7 @@ func NewHandler(store *Store) *Handler { return &Handler{store: store} }
 // @Param q query string false "标题、摘要或正文关键词"
 // @Param page query int false "页码，默认 1" default(1)
 // @Param limit query int false "每页数量，默认 20，最大 100" default(20)
-// @Success 200 {object} apiresponse.Envelope{data=Page} "文章分页结果"
+// @Success 200 {object} apiresponse.Envelope{data=Page} "文章分页结果，封面包含 coverUrl"
 // @Failure 400 {object} apiresponse.Envelope "code=10001，查询参数无效"
 // @Failure 500 {object} apiresponse.Envelope "code=50000，查询失败"
 // @Router /api/v1/posts [get]
@@ -66,6 +76,16 @@ func (h *Handler) PublicList(c *gin.Context) {
 		internalError(c, err)
 		return
 	}
+	urls, err := h.coverURLs(c, result.Items)
+	if err != nil {
+		internalError(c, err)
+		return
+	}
+	for index := range result.Items {
+		if result.Items[index].CoverMediaID != nil {
+			result.Items[index].CoverURL = urls[*result.Items[index].CoverMediaID]
+		}
+	}
 	apiresponse.Success(c, http.StatusOK, result)
 }
 
@@ -77,7 +97,7 @@ func (h *Handler) PublicList(c *gin.Context) {
 // @Produce json
 // @Param slug path string true "文章链接标识"
 // @Param locale query string true "语言代码，例如 zh-CN"
-// @Success 200 {object} apiresponse.Envelope{data=Post} "文章详情"
+// @Success 200 {object} apiresponse.Envelope{data=Post} "文章详情，封面包含 coverUrl"
 // @Failure 400 {object} apiresponse.Envelope "code=10001，语言代码无效"
 // @Failure 404 {object} apiresponse.Envelope "code=10004，文章不存在"
 // @Failure 500 {object} apiresponse.Envelope "code=50000，查询失败"
@@ -97,7 +117,35 @@ func (h *Handler) PublicBySlug(c *gin.Context) {
 		internalError(c, err)
 		return
 	}
+	urls, err := h.coverURLs(c, []Post{post})
+	if err != nil {
+		internalError(c, err)
+		return
+	}
+	if post.CoverMediaID != nil {
+		post.CoverURL = urls[*post.CoverMediaID]
+	}
 	apiresponse.Success(c, http.StatusOK, post)
+}
+
+// coverURLs 查询文章封面对应媒体记录的 COS 公开地址。
+// 参数：h 是文章处理器；c 是当前 HTTP 请求；items 是待补充封面地址的文章。
+// 返回：媒体 ID 到公开地址的映射；媒体信息查询失败时返回错误。
+func (h *Handler) coverURLs(c *gin.Context, items []Post) (map[string]string, error) {
+	if h.mediaStore == nil {
+		return map[string]string{}, nil
+	}
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		if item.CoverMediaID != nil {
+			ids = append(ids, *item.CoverMediaID)
+		}
+	}
+	urls, err := h.mediaStore.PublicURLsByIDs(c.Request.Context(), ids)
+	if err != nil {
+		return nil, err
+	}
+	return urls, nil
 }
 
 // AdminList 返回后台使用的文章分页列表，包含草稿。

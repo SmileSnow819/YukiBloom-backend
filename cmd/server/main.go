@@ -64,13 +64,14 @@ func run(ctx context.Context, getenv func(string) string) error {
 	if err != nil {
 		return fmt.Errorf("图片存储初始化失败：%w", err)
 	}
+	mediaStore := media.NewStore(pool, mediaStorage)
 
 	server := &http.Server{
 		Addr: ":" + cfg.Port,
 		Handler: httpserver.NewRouter(
 			auth.NewHandler(auth.NewStore(pool), cfg.CookieSecure),
-			posts.NewHandler(posts.NewStore(pool)),
-			media.NewHandler(media.NewStore(pool, mediaStorage)),
+			posts.NewHandler(posts.NewStore(pool), mediaStore),
+			media.NewHandler(mediaStore),
 			importer.NewHandler(posts.NewStore(pool)),
 			personal.NewHandler(personal.NewStore(pool)),
 			sitecontent.NewHandler(sitecontent.NewStore(pool)),

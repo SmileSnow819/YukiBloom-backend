@@ -14,16 +14,15 @@ docker compose up --build -d
 curl http://127.0.0.1:8080/api/v1/health
 ```
 
-健康接口正常时返回 `{"status":"正常"}`。API 只绑定主机的 `127.0.0.1`，数据库不映射主机端口。数据库和图片分别保存在 Compose 持久化卷中。与 Astro 一起部署时，Compose 会把 API 同时接入 backend 私网和 `yukibloom-public` 网络；PostgreSQL 只留在 backend 私网，Astro 与统一反向代理通过 `api:8080` 访问 Go API。
+健康接口正常时返回 `{"status":"正常"}`。API 只绑定主机的 `127.0.0.1`，数据库不映射主机端口。PostgreSQL 使用 Compose 持久化卷；图片统一保存在 COS。与 Astro 一起部署时，Compose 会把 API 同时接入 backend 私网和 `yukibloom-public` 网络；PostgreSQL 只留在 backend 私网，Astro 与统一反向代理通过 `api:8080` 访问 Go API。
 
-## 图片存储：本地或 COS
+## 图片统一存储至 COS
 
-默认 `MEDIA_STORAGE=local`，开发时图片写入 `UPLOAD_DIR`。要使用腾讯云 COS，创建通用存储桶，建议选择与 CVM 相同的地域和标准存储；目前配置的桶为 `yukibloom-1379189818`，地域为 `ap-shanghai`。桶内图片供博客访客读取时，设置为“公有读私有写”，禁止匿名写入。所有桶对象都可通过 URL 读取，因此只将公开内容图片放在这个桶中。
+后台上传和内容导入的图片统一写入腾讯云 COS，不再保存到本地目录。创建通用存储桶，建议选择与 CVM 相同的地域和标准存储；目前配置的桶为 `yukibloom-1379189818`，地域为 `ap-shanghai`。桶内图片供博客访客读取时，设置为“公有读私有写”，禁止匿名写入。所有桶对象都可通过 URL 读取，因此只将公开内容图片放在这个桶中。
 
-复制 `.env.example` 后，将 `MEDIA_STORAGE` 改为 `cos`，保留或填写以下配置，并在服务器 `.env` 中填入 COS 服务端凭证：
+复制 `.env.example` 后保留或填写以下配置，并在服务器 `.env` 中填入 COS 服务端凭证：
 
 ```dotenv
-MEDIA_STORAGE=cos
 COS_BUCKET=yukibloom-1379189818
 COS_REGION=ap-shanghai
 COS_PUBLIC_BASE_URL=https://yukibloom-1379189818.cos.ap-shanghai.myqcloud.com
@@ -31,7 +30,7 @@ COS_SECRET_ID=服务器专用的SecretId
 COS_SECRET_KEY=服务器专用的SecretKey
 ```
 
-建议在腾讯云访问管理中创建仅对此桶对象有上传、删除权限的服务身份；不要使用主账号密钥，不要将真实凭证提交到仓库。Compose 会把这些变量传给 API。上传仍由 Go API 校验图片并保存 PostgreSQL 元数据，访客访问现有 `/uploads/{key}` 地址时，API 会检查图片记录并重定向到 COS。文章、个人内容和站点内容导入命令也使用相同的存储配置。
+建议在腾讯云访问管理中创建仅对此桶对象有上传、删除权限的服务身份；不要使用主账号密钥，不要将真实凭证提交到仓库。COS 配置缺失时，API 和导入命令会启动失败。上传仍由 Go API 校验图片并保存 PostgreSQL 元数据，上传和图片库响应中的 `url` 是可直接使用的 COS 地址。公开文章列表与详情中的 `coverUrl` 也直接返回 COS 地址。文章、个人内容和站点内容导入命令使用同一组 COS 配置。旧 `/uploads/{key}` 地址不再提供服务，已有内容如仍引用该路径需改为 COS URL。
 
 COS 免费额度仅覆盖对应额度内的标准存储容量，不代表外网下行流量、请求等项目均免费。请在腾讯云费用中心查看 COS 实际账单；不要因启用 COS 而在服务器环境中暴露或提交密钥。
 
@@ -71,7 +70,7 @@ docker compose exec \
 | `10008` | 不支持的请求方法 | 405 |
 | `50000` | 服务内部错误 | 500 |
 
-前端可按 `code` 判断错误类别，并直接展示 `message`，无需硬编码错误文案。图片文件在本地存储模式下返回原始二进制内容；COS 模式下公开图片地址会重定向到 COS。
+前端可按 `code` 判断错误类别，并直接展示 `message`，无需硬编码错误文案。公开图片地址会重定向到 COS；上传和图片库 API 直接返回 COS 图片 URL。
 
 ## 接口文档与 Apifox
 
@@ -90,27 +89,27 @@ swag init --dir cmd/server,internal/apiresponse,internal/auth,internal/database,
 
 公开接口 `GET /api/v1/posts` 支持 `locale`、`category`、`tag`、`q`、`page` 和 `limit` 参数；单篇文章通过 `GET /api/v1/posts/{slug}?locale=zh-CN` 获取。公开接口只返回已发布文章。后台需要先登录，支持 `GET/POST /api/v1/admin/posts`、`GET/PATCH/DELETE /api/v1/admin/posts/{id}`、`POST /api/v1/admin/posts/{id}/publish` 和 `.../unpublish`。修改文章时需把读取到的 `version` 一并提交，避免覆盖较新的编辑。
 
-后台图片库支持 `GET/POST /api/v1/admin/media` 和 `DELETE /api/v1/admin/media/{id}`。只接受通过真实格式校验的 JPEG、PNG 和 WebP 图片，单张不超过 10 MiB，图片地址为 `/uploads/{生成的文件名}`。仍被文章正文或封面引用的图片不能删除。
+后台图片库支持 `GET/POST /api/v1/admin/media` 和 `DELETE /api/v1/admin/media/{id}`。只接受通过真实格式校验的 JPEG、PNG 和 WebP 图片，单张不超过 10 MiB，上传响应中的 `url` 为 COS 公开地址。仍被文章正文或封面引用的图片不能删除。
 
 后台 Markdown 导入支持 `POST /api/v1/admin/posts/markdown/preview` 预览，以及 `POST /api/v1/admin/posts/markdown` 保存为草稿；两者使用 multipart 字段 `file`，可选字段 `locale` 默认 `zh-CN`，文件上限为 2 MiB。预览会返回原文件的 `coverPath`。若文件声明了封面，先通过图片接口上传，再在保存请求中传 `coverMediaId`，避免导入时无声丢失封面。旧文章迁移工具默认为只读预检查；检查通过后，使用 `DATABASE_URL=... go run ./cmd/import-posts -apply` 执行导入。整批文章与封面元数据在同一数据库事务中提交，失败时回滚并清理本次写入的图片文件。重复运行会跳过已有文章，不覆盖后台编辑内容。
 
 个人内容接口提供 `GET /api/v1/footprints` 和 `GET /api/v1/timeline`，响应分别包含 `version` 与内容列表。管理员通过对应的 `PUT /api/v1/admin/footprints`、`PUT /api/v1/admin/timeline` 整体保存地点、停留、路线与实习经历；请求必须提交读取时的 `version`，旧版本返回 409，其他写入失败会回滚。
 
-迁移旧足迹与实习经历时，`go run ./cmd/import-personal` 默认只检查 YAML 和图片。检查通过后添加 `-apply` 写入；若数据库已有足迹或实习经历，需明确加 `-replace` 才会替换现有数据。迁移会把路线图片复制到后端图片目录并更新图片地址。
+迁移旧足迹与实习经历时，`go run ./cmd/import-personal` 默认只检查 YAML 和图片。检查通过后添加 `-apply` 写入；若数据库已有足迹或实习经历，需明确加 `-replace` 才会替换现有数据。迁移会把路线图片上传到 COS 并更新图片地址。
 
 站点内容公开接口为 `GET /api/v1/site-content`，后台通过 `GET/PUT /api/v1/admin/site-content` 管理站点资料、社交链接、分类映射、首页精选、导航、公告、友链、音乐列表和内容翻译。整体保存时需提交读取到的 `version`，旧版本会返回冲突提示。“关于我”等独立页面通过 `GET /api/v1/pages/{slug}?locale=zh-CN` 公开读取，后台支持页面列表、草稿保存、发布、撤回和删除。技术开关、主题设置、评论与统计服务配置继续保留在代码和环境变量中。
 
-旧站点资料迁移使用 `go run ./cmd/import-site`，默认只读检查 `config/site.yaml`、`config/i18n-content.yaml`、“关于我”和歌单页面。预检查通过后添加 `-apply` 才会写入数据库；已有站点内容时还需显式添加 `-replace`。导入工具会把头像与精选入口图片复制到后端图片目录。Docker 镜像也包含 `/import-posts`、`/import-personal`、`/import-site`，可挂载旧前端仓库后在容器内运行。
+旧站点资料迁移使用 `go run ./cmd/import-site`，默认只读检查 `config/site.yaml`、`config/i18n-content.yaml`、“关于我”和歌单页面。预检查通过后添加 `-apply` 才会写入数据库；已有站点内容时还需显式添加 `-replace`。导入工具会把头像与精选入口图片上传到 COS。Docker 镜像也包含 `/import-posts`、`/import-personal`、`/import-site`，可挂载旧前端仓库后在容器内运行。
 
 ## 本地接口验证
 
-请使用独立的测试数据库和图片目录，不要把测试数据写入正式数据库。准备测试数据库后，在一个终端创建临时管理员并启动服务：
+请使用独立的测试数据库和 COS 测试桶，不要把测试数据写入正式数据库或生产图片桶。准备测试数据库后，在一个终端创建临时管理员并启动服务：
 
 ```bash
 createdb yukibloom_test
 export DATABASE_URL='postgres://user:password@127.0.0.1:5432/yukibloom_test?sslmode=disable'
 ADMIN_USERNAME='api-test' ADMIN_PASSWORD='请换成至少 12 位的临时密码' go run ./cmd/create-admin
-COOKIE_SECURE=false UPLOAD_DIR=/tmp/yukibloom-api-test-uploads go run ./cmd/server
+COOKIE_SECURE=false go run ./cmd/server
 ```
 
 在另一个终端检查服务和管理员登录：

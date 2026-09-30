@@ -87,7 +87,6 @@ YukiBloom-backend/
     │   ├── handler.go
     │   ├── storage.go
     │   ├── storage_cos.go
-    │   ├── storage_local.go
     │   └── store.go
     ├── personal/
     │   ├── handler.go
@@ -168,9 +167,8 @@ YukiBloom-backend/
 | `internal/importer/handler_test.go` | 验证 Markdown 封面未关联时会得到明确提示。 |
 | `internal/importer/markdown.go` | 解析 Markdown frontmatter、文章正文和日期字段。 |
 | `internal/media/handler.go` | 处理图片上传、列表、删除和公开文件读取请求。 |
-| `internal/media/storage.go` | 定义图片对象存储接口并根据配置创建本地或 COS 后端。 |
+| `internal/media/storage.go` | 定义 COS 图片对象存储接口及初始化入口。 |
 | `internal/media/storage_cos.go` | 使用腾讯云 COS SDK 保存、删除和生成图片对象访问地址。 |
-| `internal/media/storage_local.go` | 在本地持久化目录原子写入、读取路径和删除图片对象。 |
 | `internal/media/store.go` | 校验图片格式与大小，并管理图片元数据和对象存储。 |
 | `internal/personal/handler.go` | 处理公开足迹和时间线查询，以及管理员整体保存请求。 |
 | `internal/personal/handler_test.go` | 验证个人内容接口的版本参数、成功保存和冲突响应。 |

@@ -68,11 +68,6 @@ func (s cosStorage) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-// LocalPath 表示 COS 对象不对应本地文件路径。
-// 参数：key 是对象键，COS 存储不使用。
-// 返回：空字符串，表示请求应重定向至对象 URL。
-func (cosStorage) LocalPath(string) string { return "" }
-
 // PublicURL 根据对象键构造 COS 图片公开地址。
 // 参数：s 是 COS 存储；key 是对象键。
 // 返回：经过 URL 转义的 COS 对象访问地址。

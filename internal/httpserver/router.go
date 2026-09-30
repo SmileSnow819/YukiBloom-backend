@@ -93,9 +93,6 @@ func NewRouter(authHandler *auth.Handler, postHandler *posts.Handler, mediaHandl
 		router.GET("/api/v1/posts", postHandler.PublicList)
 		router.GET("/api/v1/posts/:slug", postHandler.PublicBySlug)
 	}
-	if mediaHandler != nil {
-		router.GET("/uploads/:key", mediaHandler.PublicFile)
-	}
 	if personalHandler != nil {
 		router.GET("/api/v1/footprints", personalHandler.GetFootprints)
 		router.GET("/api/v1/timeline", personalHandler.GetTimeline)

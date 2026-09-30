@@ -168,6 +168,9 @@ definitions:
         type: array
       coverMediaId:
         type: string
+      coverUrl:
+        description: 公开文章封面对应的 COS 地址。
+        type: string
       createdAt:
         type: string
       description:
@@ -623,12 +626,6 @@ paths:
   /api/v1/admin/logout:
     post:
       description: 删除当前登录会话并清除会话 Cookie。
-      parameters:
-      - description: 登录接口返回的 csrfToken
-        in: header
-        name: X-CSRF-Token
-        required: true
-        type: string
       produces:
       - application/json
       responses:
@@ -638,10 +635,6 @@ paths:
             $ref: '#/definitions/apiresponse.Envelope'
         "401":
           description: code=10002，尚未登录
-          schema:
-            $ref: '#/definitions/apiresponse.Envelope'
-        "403":
-          description: code=10003，CSRF 校验失败
           schema:
             $ref: '#/definitions/apiresponse.Envelope'
         "500":
@@ -1821,7 +1814,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: 文章分页结果
+          description: 文章分页结果，封面包含 coverUrl
           schema:
             allOf:
             - $ref: '#/definitions/apiresponse.Envelope'
@@ -1857,7 +1850,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: 文章详情
+          description: 文章详情，封面包含 coverUrl
           schema:
             allOf:
             - $ref: '#/definitions/apiresponse.Envelope'
@@ -1923,32 +1916,6 @@ paths:
       summary: 查询公开实习经历
       tags:
       - 个人内容
-  /uploads/{key}:
-    get:
-      parameters:
-      - description: 图片存储文件名
-        in: path
-        name: key
-        required: true
-        type: string
-      produces:
-      - application/octet-stream
-      responses:
-        "200":
-          description: 图片文件
-          schema:
-            type: file
-        "404":
-          description: code=10004，图片不存在
-          schema:
-            $ref: '#/definitions/apiresponse.Envelope'
-        "500":
-          description: code=50000，读取图片失败
-          schema:
-            $ref: '#/definitions/apiresponse.Envelope'
-      summary: 获取公开图片文件
-      tags:
-      - 图片
 schemes:
 - http
 - https

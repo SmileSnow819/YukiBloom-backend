@@ -259,7 +259,7 @@ func validImageReference(value string) bool {
 	if strings.ContainsAny(value, `\\`) || strings.Contains(value, "..") {
 		return false
 	}
-	if strings.HasPrefix(value, "/uploads/") || strings.HasPrefix(value, "/img/") {
+	if strings.HasPrefix(value, "/img/") {
 		return true
 	}
 	return strings.HasPrefix(value, "https://")

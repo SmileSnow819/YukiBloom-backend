@@ -22,6 +22,7 @@ type Post struct {
 	Tags         []string        `json:"tags"`
 	Extra        json.RawMessage `json:"extra" swaggertype:"object"`
 	CoverMediaID *string         `json:"coverMediaId,omitempty"`
+	CoverURL     string          `json:"coverUrl,omitempty"` // 公开文章封面对应的 COS 地址。
 }
 
 type PostInput struct {

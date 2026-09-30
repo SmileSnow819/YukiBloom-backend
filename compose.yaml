@@ -22,8 +22,6 @@ services:
       GIN_MODE: release
       PORT: "8080"
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
-      UPLOAD_DIR: /data/uploads
-      MEDIA_STORAGE: ${MEDIA_STORAGE:-local}
       COS_BUCKET: ${COS_BUCKET:-}
       COS_REGION: ${COS_REGION:-}
       COS_SECRET_ID: ${COS_SECRET_ID:-}
@@ -41,15 +39,12 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
-    volumes:
-      - media_data:/data/uploads
     networks:
       - default
       - yukibloom-public
 
 volumes:
   postgres_data:
-  media_data:
 
 networks:
   yukibloom-public:

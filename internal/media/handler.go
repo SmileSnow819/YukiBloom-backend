@@ -4,7 +4,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 
@@ -131,52 +130,6 @@ func (h *Handler) Delete(c *gin.Context) {
 	default:
 		apiresponse.Success(c, http.StatusOK, nil)
 	}
-}
-
-// PublicFile 根据存储键向客户端提供图片文件。
-// 参数：h 是图片接口处理器；c 是请求上下文，用于读取存储键并返回文件或重定向响应。
-// 返回：无。
-// @Summary 获取公开图片文件
-// @Description 本地存储直接返回图片；COS 存储会重定向到 COS 公有对象地址。
-// @Tags 图片
-// @Produce application/octet-stream
-// @Param key path string true "图片存储文件名"
-// @Success 200 {file} file "图片文件"
-// @Success 302 {string} string "COS 模式下重定向到对象地址"
-// @Failure 404 {object} apiresponse.Envelope "code=10004，图片不存在"
-// @Failure 500 {object} apiresponse.Envelope "code=50000，读取图片失败"
-// @Router /uploads/{key} [get]
-func (h *Handler) PublicFile(c *gin.Context) {
-	path, mimeType, publicURL, err := h.store.PublicFile(c.Request.Context(), c.Param("key"))
-	if errors.Is(err, ErrNotFound) {
-		apiresponse.Failure(c, apiresponse.NotFound, "图片不存在")
-		return
-	}
-	if err != nil {
-		log.Printf("读取图片信息失败：%v", err)
-		apiresponse.Failure(c, apiresponse.InternalError, "读取图片失败，请稍后再试")
-		return
-	}
-	if publicURL != "" {
-		c.Header("Cache-Control", "public, max-age=31536000, immutable")
-		c.Redirect(http.StatusFound, publicURL)
-		return
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		apiresponse.Failure(c, apiresponse.NotFound, "图片文件不存在")
-		return
-	}
-	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		apiresponse.Failure(c, apiresponse.InternalError, "读取图片失败，请稍后再试")
-		return
-	}
-	c.Header("Content-Type", mimeType)
-	c.Header("X-Content-Type-Options", "nosniff")
-	c.Header("Cache-Control", "public, max-age=31536000, immutable")
-	http.ServeContent(c.Writer, c.Request, c.Param("key"), info.ModTime(), file)
 }
 
 // parsePage 读取并校验图片列表的分页参数。

@@ -145,7 +145,16 @@ func (h *Handler) ReplaceContent(c *gin.Context) {
 		apiresponse.Failure(c, apiresponse.InvalidRequest, "请求内容格式不正确或超过 4 MiB")
 		return
 	}
-	if err := ValidateContent(content); err != nil {
+	// Preserve the existing profile when an older or narrower admin form omits it.
+	if content.Profile == nil {
+		current, err := h.store.Get(c.Request.Context())
+		if err != nil {
+			siteContentError(c, err)
+			return
+		}
+		content.Profile = current.Profile
+	}
+	if err := validateContent(content, false); err != nil {
 		apiresponse.Failure(c, apiresponse.InvalidRequest, err.Error())
 		return
 	}
@@ -445,21 +454,26 @@ func ValidatePage(page Page, update bool) error {
 // 参数：content 是待校验的完整站点内容。
 // 返回：error 为 nil 表示有效，非 nil 时说明具体校验失败原因。
 func ValidateContent(content Content) error {
-	if content.Profile == nil {
+	return validateContent(content, true)
+}
+
+func validateContent(content Content, requireProfile bool) error {
+	if content.Profile == nil && requireProfile {
 		return errors.New("必须填写站点资料")
 	}
-	profile := content.Profile
-	if strings.TrimSpace(profile.Title) == "" || strings.TrimSpace(profile.Name) == "" || profile.StartYear < 1900 || profile.StartYear > 2200 || !validURL(profile.URL, false) {
-		return errors.New("站点名称、作者、建站年份或站点 URL 不正确")
-	}
-	if profile.Timezone == "" {
-		return errors.New("站点时区不能为空")
-	}
-	if _, err := time.LoadLocation(profile.Timezone); err != nil {
-		return errors.New("站点时区不是有效的时区名称")
-	}
-	if !validAsset(profile.Avatar) || !validAsset(profile.DefaultOGImage) {
-		return errors.New("站点头像或默认分享图片地址不正确")
+	if profile := content.Profile; profile != nil {
+		if strings.TrimSpace(profile.Title) == "" || strings.TrimSpace(profile.Name) == "" || profile.StartYear < 1900 || profile.StartYear > 2200 || !validURL(profile.URL, false) {
+			return errors.New("站点名称、作者、建站年份或站点 URL 不正确")
+		}
+		if profile.Timezone == "" {
+			return errors.New("站点时区不能为空")
+		}
+		if _, err := time.LoadLocation(profile.Timezone); err != nil {
+			return errors.New("站点时区不是有效的时区名称")
+		}
+		if !validAsset(profile.Avatar) || !validAsset(profile.DefaultOGImage) {
+			return errors.New("站点头像或默认分享图片地址不正确")
+		}
 	}
 	if len(content.SocialLinks) > 100 || len(content.CategoryMappings) > 200 || len(content.FeaturedCategories) > 100 || len(content.FeaturedSeries) > 100 || len(content.Navigation) > 100 || len(content.Announcements) > 100 || len(content.FriendLinks) > 1000 || len(content.Translations) > 2000 || len(content.MusicGroups) > 100 || len(content.BackgroundMusic) > 100 {
 		return errors.New("站点内容条目数量超过允许上限")
@@ -588,7 +602,7 @@ func validAsset(value string) bool {
 	if strings.ContainsAny(value, `\\`) || strings.Contains(value, "..") {
 		return false
 	}
-	if strings.HasPrefix(value, "/img/") || strings.HasPrefix(value, "/uploads/") {
+	if strings.HasPrefix(value, "/img/") {
 		return true
 	}
 	return validURL(value, false)

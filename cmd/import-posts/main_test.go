@@ -20,6 +20,11 @@ func TestApplyRollsBackAllPostsWhenLaterPostFails(t *testing.T) {
 	if url == "" {
 		t.Skip("未设置 TEST_DATABASE_URL")
 	}
+	for _, name := range []string{"TEST_COS_BUCKET", "TEST_COS_REGION", "TEST_COS_SECRET_ID", "TEST_COS_SECRET_KEY"} {
+		if os.Getenv(name) == "" {
+			t.Skip("未设置独立 COS 测试桶配置")
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	pool, err := database.Open(ctx, url)
@@ -72,13 +77,20 @@ func TestApplyRollsBackAllPostsWhenLaterPostFails(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	uploadDir := t.TempDir()
 	getenv := func(key string) string {
 		switch key {
 		case "DATABASE_URL":
 			return url
-		case "UPLOAD_DIR":
-			return uploadDir
+		case "COS_BUCKET":
+			return os.Getenv("TEST_COS_BUCKET")
+		case "COS_REGION":
+			return os.Getenv("TEST_COS_REGION")
+		case "COS_SECRET_ID":
+			return os.Getenv("TEST_COS_SECRET_ID")
+		case "COS_SECRET_KEY":
+			return os.Getenv("TEST_COS_SECRET_KEY")
+		case "COS_PUBLIC_BASE_URL":
+			return os.Getenv("TEST_COS_PUBLIC_BASE_URL")
 		default:
 			return ""
 		}
@@ -99,12 +111,5 @@ func TestApplyRollsBackAllPostsWhenLaterPostFails(t *testing.T) {
 	}
 	if mediaAfter != mediaBefore {
 		t.Fatalf("整批导入失败后图片记录从 %d 变成 %d", mediaBefore, mediaAfter)
-	}
-	files, err := os.ReadDir(uploadDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(files) != 0 {
-		t.Fatalf("整批导入失败后仍留下 %d 个图片文件", len(files))
 	}
 }
