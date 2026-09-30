@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
 
   api:
-    image: ghcr.io/smilesnow819/yukibloom-backend:${IMAGE_TAG:-main}
+    image: docker.cnb.cool/longlian.online/yukibloom-backend:${IMAGE_TAG:-main}
     build: .
     environment:
       GIN_MODE: release
