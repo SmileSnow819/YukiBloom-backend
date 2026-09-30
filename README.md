@@ -29,9 +29,8 @@ curl http://127.0.0.1:8080/api/v1/health
 | `SERVER_HOST` | 服务器 IP 或域名 |
 | `SERVER_USER` | 允许 SSH 登录并执行 Docker 命令的部署用户 |
 | `SERVER_SSH_KEY` | 对应部署用户公钥的 SSH 私钥 |
-| `SERVER_FINGERPRINT` | 服务器 SSH 主机公钥的 SHA256 指纹 |
 
-SSH 公钥需预先安装到服务器部署用户的 `authorized_keys`；主机指纹应通过可信的服务器控制台或已有安全连接核对。不要把私钥、数据库密码或 COS 密钥写进 workflow 文件。
+SSH 公钥需预先安装到服务器部署用户的 `authorized_keys`。当前 workflow 不校验 SSH 主机指纹；不要把私钥、数据库密码或 COS 密钥写进 workflow 文件。
 
 自动部署只更新 `api` 容器，不会停止 PostgreSQL 或删除其持久化卷。服务启动时会执行数据库迁移。若需回滚，在服务器目录用已知的旧提交 SHA 执行：
 
