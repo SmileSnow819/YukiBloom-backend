@@ -16,6 +16,31 @@ curl http://127.0.0.1:8080/api/v1/health
 
 健康接口正常时返回 `{"status":"正常"}`。API 只绑定主机的 `127.0.0.1`，数据库不映射主机端口。PostgreSQL 使用 Compose 持久化卷；图片统一保存在 COS。与 Astro 一起部署时，Compose 会把 API 同时接入 backend 私网和 `yukibloom-public` 网络；PostgreSQL 只留在 backend 私网，Astro 与统一反向代理通过 `api:8080` 访问 Go API。
 
+### 更新 Docker 中的代码
+
+代码更新到本机或服务器后，在**后端仓库根目录**重新构建并启动 API 容器：
+
+```bash
+cd /path/to/YukiBloom-backend
+git pull
+docker compose up -d --build api
+docker compose ps
+curl http://127.0.0.1:8080/api/v1/health
+```
+
+`git pull` 只适用于用 Git 部署的工作副本；如果代码已通过其他方式更新，从 `docker compose` 命令开始即可。`--build` 会用当前源码重新构建镜像，`up -d` 会在需要时重建 API 容器；服务启动时会自动执行数据库迁移。无需先运行 `docker compose down`，以免同时停止数据库。
+
+前端代码更新后，在**前端仓库 `YukiBloom` 的根目录**执行其 Compose 命令：
+
+```bash
+cd /path/to/YukiBloom
+git pull
+docker compose --env-file ./.env -f docker/docker-compose.yml up -d --build
+docker compose --env-file ./.env -f docker/docker-compose.yml ps
+```
+
+前端首次启动前，先启动上面的后端 Compose 服务，以创建双方共用的 `yukibloom-public` 网络。前端的 `.env` 需按其仓库说明配置；这组命令会重建 Astro 与 Nginx 镜像。两套 Compose 分别在各自的仓库目录运行，不要对数据库卷执行删除操作。
+
 ## 图片统一存储至 COS
 
 后台上传和内容导入的图片统一写入腾讯云 COS，不再保存到本地目录。创建通用存储桶，建议选择与 CVM 相同的地域和标准存储；目前配置的桶为 `yukibloom-1379189818`，地域为 `ap-shanghai`。桶内图片供博客访客读取时，设置为“公有读私有写”，禁止匿名写入。所有桶对象都可通过 URL 读取，因此只将公开内容图片放在这个桶中。
@@ -30,7 +55,7 @@ COS_SECRET_ID=服务器专用的SecretId
 COS_SECRET_KEY=服务器专用的SecretKey
 ```
 
-建议在腾讯云访问管理中创建仅对此桶对象有上传、删除权限的服务身份；不要使用主账号密钥，不要将真实凭证提交到仓库。COS 配置缺失时，API 和导入命令会启动失败。上传仍由 Go API 校验图片并保存 PostgreSQL 元数据，上传和图片库响应中的 `url` 是可直接使用的 COS 地址。公开文章列表与详情中的 `coverUrl` 也直接返回 COS 地址。文章、个人内容和站点内容导入命令使用同一组 COS 配置。旧 `/uploads/{key}` 地址不再提供服务，已有内容如仍引用该路径需改为 COS URL。
+建议在腾讯云访问管理中创建仅对此桶对象有上传、删除权限的服务身份；不要使用主账号密钥，不要将真实凭证提交到仓库。COS 配置缺失时，API 和导入命令会启动失败。上传仍由 Go API 校验图片并保存 PostgreSQL 元数据；JPEG、PNG 在保存前转为 WebP，已有 WebP 原样保存。转换后的图片以 `.webp` 对象键和 `image/webp` 类型上传，数据库记录转换后的大小和尺寸；JPEG 的 EXIF 方向会应用到图片像素。上传和图片库响应中的 `url` 是可直接使用的 COS 地址。公开文章列表与详情中的 `coverUrl` 也直接返回 COS 地址。文章、个人内容和站点内容导入命令使用同一组转换流程和 COS 配置。已上传到 COS 的旧图片不会自动转换；旧 `/uploads/{key}` 地址不再提供服务，已有内容如仍引用该路径需改为 COS URL。
 
 COS 免费额度仅覆盖对应额度内的标准存储容量，不代表外网下行流量、请求等项目均免费。请在腾讯云费用中心查看 COS 实际账单；不要因启用 COS 而在服务器环境中暴露或提交密钥。
 
@@ -89,7 +114,7 @@ swag init --dir cmd/server,internal/apiresponse,internal/auth,internal/database,
 
 公开接口 `GET /api/v1/posts` 支持 `locale`、`category`、`tag`、`q`、`page` 和 `limit` 参数；单篇文章通过 `GET /api/v1/posts/{slug}?locale=zh-CN` 获取。公开接口只返回已发布文章。后台需要先登录，支持 `GET/POST /api/v1/admin/posts`、`GET/PATCH/DELETE /api/v1/admin/posts/{id}`、`POST /api/v1/admin/posts/{id}/publish` 和 `.../unpublish`。修改文章时需把读取到的 `version` 一并提交，避免覆盖较新的编辑。
 
-后台图片库支持 `GET/POST /api/v1/admin/media` 和 `DELETE /api/v1/admin/media/{id}`。只接受通过真实格式校验的 JPEG、PNG 和 WebP 图片，单张不超过 10 MiB，上传响应中的 `url` 为 COS 公开地址。仍被文章正文或封面引用的图片不能删除。
+后台图片库支持 `GET/POST /api/v1/admin/media` 和 `DELETE /api/v1/admin/media/{id}`。只接受通过真实格式校验的 JPEG、PNG 和 WebP 图片，原文件单张不超过 10 MiB；新上传图片均以 WebP 保存，响应中的 `url` 为 COS 公开地址。仍被文章正文或封面引用的图片不能删除。
 
 后台 Markdown 导入支持 `POST /api/v1/admin/posts/markdown/preview` 预览，以及 `POST /api/v1/admin/posts/markdown` 保存为草稿；两者使用 multipart 字段 `file`，可选字段 `locale` 默认 `zh-CN`，文件上限为 2 MiB。预览会返回原文件的 `coverPath`。若文件声明了封面，先通过图片接口上传，再在保存请求中传 `coverMediaId`，避免导入时无声丢失封面。旧文章迁移工具默认为只读预检查；检查通过后，使用 `DATABASE_URL=... go run ./cmd/import-posts -apply` 执行导入。整批文章与封面元数据在同一数据库事务中提交，失败时回滚并清理本次写入的图片文件。重复运行会跳过已有文章，不覆盖后台编辑内容。
 

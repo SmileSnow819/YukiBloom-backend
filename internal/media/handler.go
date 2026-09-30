@@ -24,7 +24,7 @@ func NewHandler(store *Store) *Handler { return &Handler{store: store} }
 // 参数：h 是图片接口处理器；c 是请求上下文，用于读取上传文件和写入响应。
 // 返回：无。
 // @Summary 上传图片
-// @Description 需要登录和 CSRF 令牌。表单字段 file 接受 JPEG、PNG 或 WebP，文件最大 10 MiB。
+// @Description 需要登录和 CSRF 令牌。表单字段 file 接受 JPEG、PNG 或 WebP，原文件最大 10 MiB；JPEG 和 PNG 在保存前转为 WebP。
 // @Tags 管理图片
 // @Accept mpfd
 // @Produce json

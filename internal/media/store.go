@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gen2brain/jpegn"
+	webpencoder "github.com/gen2brain/webp"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -108,9 +110,9 @@ func (s *Store) RemoveObject(ctx context.Context, key string) error {
 	return s.storage.Delete(ctx, key)
 }
 
-// readImage 限制读取大小并校验图片内容。
+// readImage 限制读取大小、校验图片内容，并将 JPEG 或 PNG 转为 WebP。
 // 参数：source 是上传图片的数据流。
-// 返回：图片字节、格式和尺寸信息；读取或校验失败时返回对应错误。
+// 返回：待保存的 WebP 字节、格式和尺寸信息；读取、校验或编码失败时返回对应错误。
 func readImage(source io.Reader) ([]byte, ImageInfo, error) {
 	data, err := io.ReadAll(io.LimitReader(source, MaxUploadBytes+1))
 	if err != nil {
@@ -123,7 +125,30 @@ func readImage(source io.Reader) ([]byte, ImageInfo, error) {
 	if err != nil {
 		return nil, ImageInfo{}, err
 	}
-	return data, info, nil
+	if info.MIMEType == "image/webp" {
+		return data, info, nil
+	}
+	var decoded image.Image
+	if info.MIMEType == "image/jpeg" {
+		decoded, err = jpegn.Decode(bytes.NewReader(data), &jpegn.Options{AutoRotate: true})
+	} else {
+		decoded, _, err = image.Decode(bytes.NewReader(data))
+	}
+	if err != nil {
+		return nil, ImageInfo{}, ErrInvalidImage
+	}
+	var output bytes.Buffer
+	if err := webpencoder.Encode(&output, decoded, webpencoder.Options{Quality: 80, Method: 4}); err != nil {
+		return nil, ImageInfo{}, fmt.Errorf("图片转换为 WebP 失败：%w", err)
+	}
+	if output.Len() > MaxUploadBytes {
+		return nil, ImageInfo{}, ErrTooLarge
+	}
+	info.MIMEType = "image/webp"
+	info.Extension = ".webp"
+	info.Width = decoded.Bounds().Dx()
+	info.Height = decoded.Bounds().Dy()
+	return output.Bytes(), info, nil
 }
 
 // saveImageMetadata 将图片文件信息写入 media 表。

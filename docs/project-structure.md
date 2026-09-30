@@ -88,7 +88,8 @@ YukiBloom-backend/
     │   ├── handler.go
     │   ├── storage.go
     │   ├── storage_cos.go
-    │   └── store.go
+    │   ├── store.go
+    │   └── store_test.go
     ├── personal/
     │   ├── handler.go
     │   ├── handler_test.go
@@ -171,7 +172,8 @@ YukiBloom-backend/
 | `internal/media/handler.go` | 处理图片上传、列表、删除和公开文件读取请求。 |
 | `internal/media/storage.go` | 定义 COS 图片对象存储接口及初始化入口。 |
 | `internal/media/storage_cos.go` | 使用腾讯云 COS SDK 保存、删除和生成图片对象访问地址。 |
-| `internal/media/store.go` | 校验图片格式与大小，并管理图片元数据和对象存储。 |
+| `internal/media/store.go` | 校验图片格式与大小、转为 WebP，并管理图片元数据和对象存储。 |
+| `internal/media/store_test.go` | 验证图片转为 WebP、透明度和 JPEG 方向处理。 |
 | `internal/personal/handler.go` | 处理公开足迹和时间线查询，以及管理员整体保存请求。 |
 | `internal/personal/handler_test.go` | 验证个人内容接口的版本参数、成功保存和冲突响应。 |
 | `internal/personal/model.go` | 定义足迹地点、停留、路线和实习经历的数据结构。 |

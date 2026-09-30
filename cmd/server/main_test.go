@@ -15,8 +15,17 @@ func TestRunRejectsMissingDatabaseConfiguration(t *testing.T) {
 
 func TestRunReportsDatabaseConnectionFailure(t *testing.T) {
 	err := run(context.Background(), func(key string) string {
-		if key == "DATABASE_URL" {
+		switch key {
+		case "DATABASE_URL":
 			return "postgres://user:pass@127.0.0.1:1/blog?connect_timeout=1"
+		case "COS_BUCKET":
+			return "test-bucket"
+		case "COS_REGION":
+			return "ap-shanghai"
+		case "COS_SECRET_ID":
+			return "test-secret-id"
+		case "COS_SECRET_KEY":
+			return "test-secret-key"
 		}
 		return ""
 	})
