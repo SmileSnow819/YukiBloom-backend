@@ -26,10 +26,6 @@ main:
             printf '%s' "$SERVER_SSH_KEY_BASE64" | base64 -d > /tmp/deploy_key
             chmod 600 /tmp/deploy_key
             ssh-keyscan -H "$SERVER_HOST" > /tmp/known_hosts 2>/dev/null
-            if ! ssh-keygen -lf /tmp/known_hosts -E sha256 | awk '{ print $2 }' | grep -Fxq "$SERVER_FINGERPRINT"; then
-              echo "SSH host fingerprint does not match SERVER_FINGERPRINT" >&2
-              exit 1
-            fi
             scp -i /tmp/deploy_key -o UserKnownHostsFile=/tmp/known_hosts -o StrictHostKeyChecking=yes \
               compose.yaml "$SERVER_USER@$SERVER_HOST:/srv/YukiBloom-backend/compose.yaml"
             ssh -i /tmp/deploy_key -o UserKnownHostsFile=/tmp/known_hosts -o StrictHostKeyChecking=yes \

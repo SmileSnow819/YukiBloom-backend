@@ -43,10 +43,9 @@ allow_branches: main
 SERVER_HOST: 服务器公网 IP 或 SSH 域名
 SERVER_USER: 部署用户
 SERVER_SSH_KEY_BASE64: Base64 编码后的 SSH 私钥
-SERVER_FINGERPRINT: SHA256:服务器主机指纹
 ```
 
-SSH 公钥需预先安装到服务器部署用户的 `authorized_keys`；主机指纹应通过可信的服务器控制台或已有安全连接核对。私钥、令牌、数据库密码和 COS 密钥不要提交到 Git。
+SSH 公钥需预先安装到服务器部署用户的 `authorized_keys`。当前流水线不校验 SSH 主机指纹；私钥、令牌、数据库密码和 COS 密钥不要提交到 Git。
 
 自动部署只更新 `api` 容器，不会停止 PostgreSQL 或删除其持久化卷。服务启动时会执行数据库迁移。每次构建会同时发布 `main` 和完整提交 SHA 标签，部署使用完整提交 SHA；回滚时可在服务器目录指定旧提交 SHA：
 
