@@ -48,6 +48,7 @@
   {"path": "internal/database/migrations/0004_site_content.sql", "description": "创建站点资料、页面、导航、友链、翻译和音乐数据表。"},
   {"path": "internal/database/migrations/0005_site_content_revision.sql", "description": "保存站点内容版本，用于检测并发编辑冲突。"},
   {"path": "internal/database/migrations/0006_personal_content_revision.sql", "description": "保存足迹与实习经历各自的版本号，用于检测并发编辑冲突。"},
+  {"path": "internal/database/migrations/0007_unified_categories.sql", "description": "将分类映射与首页精选分类合并到统一分类表，并迁移分类翻译。"},
   {"path": "internal/httpserver/auth_routes_test.go", "description": "验证后台路由在未登录时拒绝访问。"},
   {"path": "internal/httpserver/router.go", "description": "注册健康检查、公开内容、管理员和上传文件路由。"},
   {"path": "internal/httpserver/router_test.go", "description": "验证健康检查、未知路由和代理来源识别。"},

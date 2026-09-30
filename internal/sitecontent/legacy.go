@@ -66,18 +66,66 @@ func LoadLegacy(sitePath, translationsPath, aboutPath, musicPath string) (Conten
 		content.SocialLinks = append(content.SocialLinks, item)
 	}
 	for _, name := range sortedKeys(legacy.CategoryMap) {
-		content.CategoryMappings = append(content.CategoryMappings, CategoryMapping{Name: name, Slug: legacy.CategoryMap[name]})
+		content.Categories = append(content.Categories, Category{Name: name, Slug: legacy.CategoryMap[name]})
 	}
 	for _, raw := range legacy.FeaturedCategories {
-		var item FeaturedCategory
+		var item struct {
+			Link        string `yaml:"link" json:"link"`
+			Label       string `yaml:"label" json:"label"`
+			Image       string `yaml:"image" json:"image"`
+			Description string `yaml:"description" json:"description"`
+			Enabled     bool   `yaml:"enabled" json:"enabled"`
+		}
 		if err := remarshalYAML(raw, &item); err != nil {
 			return Content{}, nil, fmt.Errorf("精选分类格式错误：%w", err)
 		}
 		if _, present := raw["enabled"]; !present {
 			item.Enabled = true
 		}
-		content.FeaturedCategories = append(content.FeaturedCategories, item)
+		categoryIndex := -1
+		for index, category := range content.Categories {
+			if category.Slug == item.Link || category.Name == item.Label {
+				categoryIndex = index
+				break
+			}
+		}
+		if categoryIndex < 0 {
+			content.Categories = append(content.Categories, Category{Name: item.Label, Slug: item.Link})
+			categoryIndex = len(content.Categories) - 1
+		}
+		category := &content.Categories[categoryIndex]
+		category.Image = item.Image
+		category.Description = item.Description
+		category.ShowOnHome = item.Enabled
 	}
+	// 首页分类优先按旧配置顺序排列，其余分类保留分类映射顺序。
+	featuredOrder := make([]Category, 0, len(legacy.FeaturedCategories))
+	for _, raw := range legacy.FeaturedCategories {
+		var item struct {
+			Link  string `yaml:"link" json:"link"`
+			Label string `yaml:"label" json:"label"`
+		}
+		if err := remarshalYAML(raw, &item); err != nil {
+			return Content{}, nil, fmt.Errorf("精选分类格式错误：%w", err)
+		}
+		for _, category := range content.Categories {
+			if category.Slug == item.Link || category.Name == item.Label {
+				if category.ShowOnHome {
+					featuredOrder = append(featuredOrder, category)
+				}
+				break
+			}
+		}
+	}
+	for _, category := range content.Categories {
+		if !category.ShowOnHome {
+			featuredOrder = append(featuredOrder, category)
+		}
+	}
+	for index := range featuredOrder {
+		featuredOrder[index].SortOrder = index
+	}
+	content.Categories = featuredOrder
 	for _, raw := range legacy.FeaturedSeries {
 		var item FeaturedSeries
 		if err := remarshalYAML(raw, &item); err != nil {
@@ -131,7 +179,18 @@ func LoadLegacy(sitePath, translationsPath, aboutPath, musicPath string) (Conten
 		}
 		for _, key := range sortedKeys(values.FeaturedCategories) {
 			value := values.FeaturedCategories[key]
-			content.Translations = append(content.Translations, Translation{Locale: locale, EntityType: "featuredCategories", EntityKey: key, Label: value.Label, Description: value.Description})
+			translation := Translation{Locale: locale, EntityType: "categories", EntityKey: key, Label: value.Label, Description: value.Description}
+			found := false
+			for index, current := range content.Translations {
+				if current.Locale == locale && current.EntityType == "categories" && current.EntityKey == key {
+					content.Translations[index] = translation
+					found = true
+					break
+				}
+			}
+			if !found {
+				content.Translations = append(content.Translations, translation)
+			}
 		}
 	}
 	musicGroups, musicPage, err := parseLegacyMusic(musicPath)

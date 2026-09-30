@@ -62,34 +62,17 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 		return Content{}, err
 	}
 	rows.Close()
-	rows, err = s.pool.Query(ctx, `SELECT category_name,slug FROM category_mappings ORDER BY sort_order,category_name`)
+	rows, err = s.pool.Query(ctx, `SELECT category_name,slug,image,description,show_on_home,sort_order FROM categories ORDER BY sort_order,category_name`)
 	if err != nil {
 		return Content{}, err
 	}
 	for rows.Next() {
-		var item CategoryMapping
-		if err := rows.Scan(&item.Name, &item.Slug); err != nil {
+		var item Category
+		if err := rows.Scan(&item.Name, &item.Slug, &item.Image, &item.Description, &item.ShowOnHome, &item.SortOrder); err != nil {
 			rows.Close()
 			return Content{}, err
 		}
-		content.CategoryMappings = append(content.CategoryMappings, item)
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return Content{}, err
-	}
-	rows.Close()
-	rows, err = s.pool.Query(ctx, `SELECT link,label,image,description,enabled FROM featured_categories ORDER BY sort_order,link`)
-	if err != nil {
-		return Content{}, err
-	}
-	for rows.Next() {
-		var item FeaturedCategory
-		if err := rows.Scan(&item.Link, &item.Label, &item.Image, &item.Description, &item.Enabled); err != nil {
-			rows.Close()
-			return Content{}, err
-		}
-		content.FeaturedCategories = append(content.FeaturedCategories, item)
+		content.Categories = append(content.Categories, item)
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
@@ -225,7 +208,7 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 // 参数：无。
 // 返回：Content 是可安全追加内容的空站点内容对象。
 func emptyContent() Content {
-	return Content{SocialLinks: []SocialLink{}, CategoryMappings: []CategoryMapping{}, FeaturedCategories: []FeaturedCategory{}, FeaturedSeries: []FeaturedSeries{}, Navigation: []NavigationItem{}, Announcements: []Announcement{}, FriendLinks: []FriendLink{}, Translations: []Translation{}, MusicGroups: []MusicGroup{}, BackgroundMusic: []BackgroundTrack{}}
+	return Content{SocialLinks: []SocialLink{}, Categories: []Category{}, FeaturedSeries: []FeaturedSeries{}, Navigation: []NavigationItem{}, Announcements: []Announcement{}, FriendLinks: []FriendLink{}, Translations: []Translation{}, MusicGroups: []MusicGroup{}, BackgroundMusic: []BackgroundTrack{}}
 }
 
 // 读取导航数据并按父子关系组装成树。
@@ -326,7 +309,7 @@ func replaceWithinTx(ctx context.Context, tx pgx.Tx, content Content) error {
 	if result.RowsAffected() != 1 {
 		return ErrConflict
 	}
-	for _, table := range []string{"music_links", "music_groups", "background_music_tracks", "content_translations", "friend_links", "friend_settings", "site_announcements", "site_navigation", "featured_series", "featured_categories", "category_mappings", "social_links", "site_profile"} {
+	for _, table := range []string{"music_links", "music_groups", "background_music_tracks", "content_translations", "friend_links", "friend_settings", "site_announcements", "site_navigation", "featured_series", "categories", "social_links", "site_profile"} {
 		if _, err := tx.Exec(ctx, "DELETE FROM "+table); err != nil {
 			return err
 		}
@@ -347,13 +330,8 @@ func replaceWithinTx(ctx context.Context, tx pgx.Tx, content Content) error {
 			return err
 		}
 	}
-	for index, item := range content.CategoryMappings {
-		if _, err := tx.Exec(ctx, `INSERT INTO category_mappings (category_name,slug,sort_order) VALUES ($1,$2,$3)`, item.Name, item.Slug, index); err != nil {
-			return err
-		}
-	}
-	for index, item := range content.FeaturedCategories {
-		if _, err := tx.Exec(ctx, `INSERT INTO featured_categories (link,label,image,description,sort_order,enabled) VALUES ($1,$2,$3,$4,$5,$6)`, item.Link, item.Label, item.Image, item.Description, index, item.Enabled); err != nil {
+	for _, item := range content.Categories {
+		if _, err := tx.Exec(ctx, `INSERT INTO categories (category_name,slug,image,description,show_on_home,sort_order) VALUES ($1,$2,$3,$4,$5,$6)`, item.Name, item.Slug, item.Image, item.Description, item.ShowOnHome, item.SortOrder); err != nil {
 			return err
 		}
 	}

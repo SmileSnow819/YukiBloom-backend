@@ -97,7 +97,7 @@ swag init --dir cmd/server,internal/apiresponse,internal/auth,internal/database,
 
 迁移旧足迹与实习经历时，`go run ./cmd/import-personal` 默认只检查 YAML 和图片。检查通过后添加 `-apply` 写入；若数据库已有足迹或实习经历，需明确加 `-replace` 才会替换现有数据。迁移会把路线图片上传到 COS 并更新图片地址。
 
-站点内容公开接口为 `GET /api/v1/site-content`，后台通过 `GET/PUT /api/v1/admin/site-content` 管理站点资料、社交链接、分类映射、首页精选、导航、公告、友链、音乐列表和内容翻译。整体保存时需提交读取到的 `version`，旧版本会返回冲突提示。“关于我”等独立页面通过 `GET /api/v1/pages/{slug}?locale=zh-CN` 公开读取，后台支持页面列表、草稿保存、发布、撤回和删除。技术开关、主题设置、评论与统计服务配置继续保留在代码和环境变量中。
+站点内容公开接口为 `GET /api/v1/site-content`，后台通过 `GET/PUT /api/v1/admin/site-content` 管理站点资料、社交链接、分类、精选系列、导航、公告、友链、音乐列表和内容翻译。每条分类记录统一保存名称、slug、首页展示状态、封面、描述及顺序；文章继续通过分类名称关联分类。整体保存时需提交读取到的 `version`，旧版本会返回冲突提示。“关于我”等独立页面通过 `GET /api/v1/pages/{slug}?locale=zh-CN` 公开读取，后台支持页面列表、草稿保存、发布、撤回和删除。技术开关、主题设置、评论与统计服务配置继续保留在代码和环境变量中。
 
 旧站点资料迁移使用 `go run ./cmd/import-site`，默认只读检查 `config/site.yaml`、`config/i18n-content.yaml`、“关于我”和歌单页面。预检查通过后添加 `-apply` 才会写入数据库；已有站点内容时还需显式添加 `-replace`。导入工具会把头像与精选入口图片上传到 COS。Docker 镜像也包含 `/import-posts`、`/import-personal`、`/import-site`，可挂载旧前端仓库后在容器内运行。
 

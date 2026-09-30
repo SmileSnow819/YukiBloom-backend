@@ -2652,11 +2652,23 @@
                 }
             }
         },
-        "sitecontent.CategoryMapping": {
+        "sitecontent.Category": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
+                },
+                "showOnHome": {
+                    "type": "boolean"
+                },
+                "sortOrder": {
+                    "type": "integer"
                 },
                 "slug": {
                     "type": "string"
@@ -2678,16 +2690,10 @@
                         "$ref": "#/definitions/sitecontent.BackgroundTrack"
                     }
                 },
-                "categoryMappings": {
+                "categories": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/sitecontent.CategoryMapping"
-                    }
-                },
-                "featuredCategories": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/sitecontent.FeaturedCategory"
+                        "$ref": "#/definitions/sitecontent.Category"
                     }
                 },
                 "featuredSeries": {
@@ -2734,26 +2740,6 @@
                 },
                 "version": {
                     "type": "integer"
-                }
-            }
-        },
-        "sitecontent.FeaturedCategory": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "image": {
-                    "type": "string"
-                },
-                "label": {
-                    "type": "string"
-                },
-                "link": {
-                    "type": "string"
                 }
             }
         },

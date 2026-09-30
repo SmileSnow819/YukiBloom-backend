@@ -251,7 +251,7 @@ func (s *Store) DeleteUnused(ctx context.Context, id string) error {
 		OR EXISTS(SELECT 1 FROM footprint_routes r, unnest(r.images) AS image_url(value) WHERE position($2 in image_url.value)>0)
 		OR EXISTS(SELECT 1 FROM content_pages WHERE position($2 in body_markdown)>0)
 		OR EXISTS(SELECT 1 FROM site_profile WHERE position($2 in avatar_url)>0 OR position($2 in default_og_image)>0)
-		OR EXISTS(SELECT 1 FROM featured_categories WHERE position($2 in image)>0)
+		OR EXISTS(SELECT 1 FROM categories WHERE position($2 in image)>0)
 		OR EXISTS(SELECT 1 FROM featured_series WHERE position($2 in cover)>0)
 		OR EXISTS(SELECT 1 FROM friend_links WHERE position($2 in image)>0)`, id, key).Scan(&used)
 	if err != nil {

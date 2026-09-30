@@ -274,10 +274,18 @@ definitions:
       url:
         type: string
     type: object
-  sitecontent.CategoryMapping:
+  sitecontent.Category:
     properties:
+      description:
+        type: string
+      image:
+        type: string
       name:
         type: string
+      showOnHome:
+        type: boolean
+      sortOrder:
+        type: integer
       slug:
         type: string
     type: object
@@ -291,13 +299,9 @@ definitions:
         items:
           $ref: '#/definitions/sitecontent.BackgroundTrack'
         type: array
-      categoryMappings:
+      categories:
         items:
-          $ref: '#/definitions/sitecontent.CategoryMapping'
-        type: array
-      featuredCategories:
-        items:
-          $ref: '#/definitions/sitecontent.FeaturedCategory'
+          $ref: '#/definitions/sitecontent.Category'
         type: array
       featuredSeries:
         items:
@@ -329,19 +333,6 @@ definitions:
         type: array
       version:
         type: integer
-    type: object
-  sitecontent.FeaturedCategory:
-    properties:
-      description:
-        type: string
-      enabled:
-        type: boolean
-      image:
-        type: string
-      label:
-        type: string
-      link:
-        type: string
     type: object
   sitecontent.FeaturedSeries:
     properties:

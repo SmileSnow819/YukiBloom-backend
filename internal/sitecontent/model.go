@@ -26,17 +26,13 @@ type SocialLink struct {
 	Enabled  bool   `json:"enabled"`
 }
 
-type CategoryMapping struct {
-	Name string `json:"name"`
-	Slug string `json:"slug"`
-}
-
-type FeaturedCategory struct {
-	Link        string `json:"link"`
-	Label       string `json:"label"`
+type Category struct {
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
 	Image       string `json:"image"`
 	Description string `json:"description"`
-	Enabled     bool   `json:"enabled"`
+	ShowOnHome  bool   `json:"showOnHome"`
+	SortOrder   int    `json:"sortOrder"`
 }
 
 type FeaturedSeries struct {
@@ -142,17 +138,16 @@ type Page struct {
 }
 
 type Content struct {
-	Version            int64              `json:"version"`
-	Profile            *Profile           `json:"profile"`
-	SocialLinks        []SocialLink       `json:"socialLinks"`
-	CategoryMappings   []CategoryMapping  `json:"categoryMappings"`
-	FeaturedCategories []FeaturedCategory `json:"featuredCategories"`
-	FeaturedSeries     []FeaturedSeries   `json:"featuredSeries"`
-	Navigation         []NavigationItem   `json:"navigation"`
-	Announcements      []Announcement     `json:"announcements"`
-	FriendSettings     FriendSettings     `json:"friendSettings"`
-	FriendLinks        []FriendLink       `json:"friendLinks"`
-	Translations       []Translation      `json:"translations"`
-	MusicGroups        []MusicGroup       `json:"musicGroups"`
-	BackgroundMusic    []BackgroundTrack  `json:"backgroundMusic"`
+	Version         int64             `json:"version"`
+	Profile         *Profile          `json:"profile"`
+	SocialLinks     []SocialLink      `json:"socialLinks"`
+	Categories      []Category        `json:"categories"`
+	FeaturedSeries  []FeaturedSeries  `json:"featuredSeries"`
+	Navigation      []NavigationItem  `json:"navigation"`
+	Announcements   []Announcement    `json:"announcements"`
+	FriendSettings  FriendSettings    `json:"friendSettings"`
+	FriendLinks     []FriendLink      `json:"friendLinks"`
+	Translations    []Translation     `json:"translations"`
+	MusicGroups     []MusicGroup      `json:"musicGroups"`
+	BackgroundMusic []BackgroundTrack `json:"backgroundMusic"`
 }

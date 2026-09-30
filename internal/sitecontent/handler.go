@@ -32,7 +32,7 @@ func NewHandler(store *Store) *Handler { return &Handler{store: store} }
 // 参数：h 是站点内容处理器；c 是当前 HTTP 请求上下文。
 // 返回：无；结果通过 HTTP JSON 响应返回。
 // @Summary 查询公开站点内容
-// @Description 返回公开站点资料、导航、精选内容、公告、已审核友链及音乐信息。
+// @Description 返回公开站点资料、分类、精选系列、导航、公告、已审核友链及音乐信息。
 // @Tags 站点内容
 // @Produce json
 // @Success 200 {object} apiresponse.Envelope{data=Content} "公开站点内容"
@@ -63,13 +63,6 @@ func (h *Handler) PublicContent(c *gin.Context) {
 		}
 	}
 	content.FriendLinks = friends
-	features := make([]FeaturedCategory, 0, len(content.FeaturedCategories))
-	for _, item := range content.FeaturedCategories {
-		if item.Enabled {
-			features = append(features, item)
-		}
-	}
-	content.FeaturedCategories = features
 	series := make([]FeaturedSeries, 0, len(content.FeaturedSeries))
 	for _, item := range content.FeaturedSeries {
 		if item.Enabled {
@@ -475,7 +468,7 @@ func validateContent(content Content, requireProfile bool) error {
 			return errors.New("站点头像或默认分享图片地址不正确")
 		}
 	}
-	if len(content.SocialLinks) > 100 || len(content.CategoryMappings) > 200 || len(content.FeaturedCategories) > 100 || len(content.FeaturedSeries) > 100 || len(content.Navigation) > 100 || len(content.Announcements) > 100 || len(content.FriendLinks) > 1000 || len(content.Translations) > 2000 || len(content.MusicGroups) > 100 || len(content.BackgroundMusic) > 100 {
+	if len(content.SocialLinks) > 100 || len(content.Categories) > 200 || len(content.FeaturedSeries) > 100 || len(content.Navigation) > 100 || len(content.Announcements) > 100 || len(content.FriendLinks) > 1000 || len(content.Translations) > 2000 || len(content.MusicGroups) > 100 || len(content.BackgroundMusic) > 100 {
 		return errors.New("站点内容条目数量超过允许上限")
 	}
 	for _, item := range content.SocialLinks {
@@ -483,14 +476,31 @@ func validateContent(content Content, requireProfile bool) error {
 			return errors.New("社交链接需要平台名称和有效 URL")
 		}
 	}
-	for _, item := range content.CategoryMappings {
-		if strings.TrimSpace(item.Name) == "" || !slugPattern.MatchString(item.Slug) {
-			return errors.New("分类映射需要名称和有效 slug")
+	categoryNames := make(map[string]struct{}, len(content.Categories))
+	categorySlugs := make(map[string]struct{}, len(content.Categories))
+	categorySortOrders := make(map[int]struct{}, len(content.Categories))
+	for _, item := range content.Categories {
+		name := strings.TrimSpace(item.Name)
+		if name == "" || !slugPattern.MatchString(item.Slug) {
+			return errors.New("分类需要名称和有效链接标识")
 		}
-	}
-	for _, item := range content.FeaturedCategories {
-		if item.Link == "" || item.Label == "" || !slugPattern.MatchString(item.Link) || !validAsset(item.Image) {
-			return errors.New("精选分类需要有效链接和名称")
+		if _, exists := categoryNames[name]; exists {
+			return errors.New("分类名称不能重复")
+		}
+		if _, exists := categorySlugs[item.Slug]; exists {
+			return errors.New("分类链接标识不能重复")
+		}
+		if item.SortOrder < 0 {
+			return errors.New("分类顺序不能小于 0")
+		}
+		if _, exists := categorySortOrders[item.SortOrder]; exists {
+			return errors.New("分类顺序不能重复")
+		}
+		categoryNames[name] = struct{}{}
+		categorySlugs[item.Slug] = struct{}{}
+		categorySortOrders[item.SortOrder] = struct{}{}
+		if !validAsset(item.Image) || item.ShowOnHome && item.Image == "" {
+			return errors.New("首页展示的分类需要有效封面图片")
 		}
 	}
 	for _, item := range content.FeaturedSeries {
@@ -525,7 +535,7 @@ func validateContent(content Content, requireProfile bool) error {
 		}
 	}
 	for _, item := range content.Translations {
-		if !localePattern.MatchString(item.Locale) || item.EntityType != "categories" && item.EntityType != "series" && item.EntityType != "featuredCategories" || item.EntityKey == "" {
+		if !localePattern.MatchString(item.Locale) || item.EntityType != "categories" && item.EntityType != "series" || item.EntityKey == "" {
 			return errors.New("内容翻译的语言、类型或标识不正确")
 		}
 	}

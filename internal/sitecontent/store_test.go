@@ -40,14 +40,13 @@ func TestSiteContentRoundTripAndPagePublishing(t *testing.T) {
 		t.Fatal(err)
 	}
 	content := Content{
-		Version:            current.Version,
-		Profile:            &Profile{Title: "测试站点", Name: "站长", URL: "https://example.com", StartYear: 2026, Timezone: "Asia/Shanghai", Keywords: []string{"博客"}},
-		SocialLinks:        []SocialLink{{Platform: "github", URL: "https://github.com/example", Icon: "ri:github-fill", Enabled: true}},
-		CategoryMappings:   []CategoryMapping{{Name: "随笔", Slug: "essay"}},
-		FeaturedCategories: []FeaturedCategory{{Link: "essay", Label: "随笔", Enabled: true}},
-		FeaturedSeries:     []FeaturedSeries{{Slug: "weekly", CategoryName: "周刊", Enabled: true, HighlightOnHome: true, Links: map[string]string{"rss": "/rss.xml"}}},
-		Navigation:         []NavigationItem{{Name: "文章", Children: []NavigationItem{{Name: "分类", Path: "/categories"}}}},
-		MusicGroups:        []MusicGroup{{Title: "我的歌单", Enabled: true, Links: []MusicLink{{URL: "https://music.163.com/playlist?id=1"}}}},
+		Version:        current.Version,
+		Profile:        &Profile{Title: "测试站点", Name: "站长", URL: "https://example.com", StartYear: 2026, Timezone: "Asia/Shanghai", Keywords: []string{"博客"}},
+		SocialLinks:    []SocialLink{{Platform: "github", URL: "https://github.com/example", Icon: "ri:github-fill", Enabled: true}},
+		Categories:     []Category{{Name: "随笔", Slug: "essay", Image: "https://example.com/essay.webp", ShowOnHome: true}},
+		FeaturedSeries: []FeaturedSeries{{Slug: "weekly", CategoryName: "周刊", Enabled: true, HighlightOnHome: true, Links: map[string]string{"rss": "/rss.xml"}}},
+		Navigation:     []NavigationItem{{Name: "文章", Children: []NavigationItem{{Name: "分类", Path: "/categories"}}}},
+		MusicGroups:    []MusicGroup{{Title: "我的歌单", Enabled: true, Links: []MusicLink{{URL: "https://music.163.com/playlist?id=1"}}}},
 	}
 	if err := store.Replace(ctx, content); err != nil {
 		t.Fatalf("保存站点内容失败：%v", err)
@@ -56,7 +55,7 @@ func TestSiteContentRoundTripAndPagePublishing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("读取站点内容失败：%v", err)
 	}
-	if loaded.Profile == nil || loaded.Profile.Title != "测试站点" || len(loaded.Navigation) != 1 || len(loaded.Navigation[0].Children) != 1 || len(loaded.MusicGroups) != 1 || len(loaded.MusicGroups[0].Links) != 1 {
+	if loaded.Profile == nil || loaded.Profile.Title != "测试站点" || len(loaded.Categories) != 1 || loaded.Categories[0].Name != "随笔" || !loaded.Categories[0].ShowOnHome || len(loaded.Navigation) != 1 || len(loaded.Navigation[0].Children) != 1 || len(loaded.MusicGroups) != 1 || len(loaded.MusicGroups[0].Links) != 1 {
 		t.Fatalf("站点内容往返后结构不正确：%+v", loaded)
 	}
 	if loaded.Version != content.Version+1 {

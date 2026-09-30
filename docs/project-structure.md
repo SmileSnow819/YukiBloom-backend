@@ -74,7 +74,8 @@ YukiBloom-backend/
     │       ├── 0003_personal_content.sql
     │       ├── 0004_site_content.sql
     │       ├── 0005_site_content_revision.sql
-    │       └── 0006_personal_content_revision.sql
+    │       ├── 0006_personal_content_revision.sql
+    │       └── 0007_unified_categories.sql
     ├── httpserver/
     │   ├── auth_routes_test.go
     │   ├── router.go
@@ -112,7 +113,7 @@ YukiBloom-backend/
 | 文件 | 用途 |
 | --- | --- |
 | `.dockerignore` | Docker 镜像构建时忽略的本地文件和目录。 |
-| `.env.example` | 本地及 Compose 部署所需的数据库、管理员和可选 COS 环境变量示例。 |
+| `.env.example` | 本地及 Compose 部署所需的数据库、管理员和 COS 环境变量示例。 |
 | `.gitignore` | Git 忽略规则，防止提交本地配置和生成文件。 |
 | `AGENTS.md` | 提供给 AI 助手和维护者的协作、代码、安全和验证约定。 |
 | `Dockerfile` | 构建并打包 Go API 服务和内容导入命令。 |
@@ -129,7 +130,7 @@ YukiBloom-backend/
 | `cmd/project-map/main.go` | 扫描项目文件并根据职责清单生成目录结构图和文件用途表。 |
 | `cmd/server/main.go` | 加载配置、连接 PostgreSQL、运行迁移并启动 Gin API。 |
 | `cmd/server/main_test.go` | 验证 API 服务启动配置的错误信息不会泄露敏感值。 |
-| `compose.yaml` | 定义 PostgreSQL 和 Go API 的本地 Compose 服务与持久化卷。 |
+| `compose.yaml` | 定义 PostgreSQL 持久化卷和 Go API 的本地 Compose 服务。 |
 | `docs/project-files.json` | 维护项目每个文件的用途说明，供结构图生成命令读取。 |
 | `docs/project-structure.md` | 由生成命令产出的目录树和逐文件职责索引。 |
 | `docs/superpowers/plans/2026-09-24-backend-foundation.md` | 记录后端基础架构实施步骤和验证安排。 |
@@ -148,7 +149,7 @@ YukiBloom-backend/
 | `internal/auth/password_test.go` | 验证管理员密码哈希和密码校验行为。 |
 | `internal/auth/session.go` | 保存管理员账号和会话，并校验会话令牌及 CSRF 令牌。 |
 | `internal/auth/session_test.go` | 使用临时 PostgreSQL 验证管理员和会话数据访问。 |
-| `internal/config/config.go` | 从环境变量读取并校验服务、图片存储与 COS 运行配置。 |
+| `internal/config/config.go` | 从环境变量读取并校验服务与 COS 运行配置。 |
 | `internal/config/config_test.go` | 验证环境变量配置的默认值和非法输入。 |
 | `internal/database/database.go` | 创建带连接超时的 PostgreSQL 连接池。 |
 | `internal/database/database_test.go` | 验证数据库连接配置与连接失败处理。 |
@@ -160,6 +161,7 @@ YukiBloom-backend/
 | `internal/database/migrations/0004_site_content.sql` | 创建站点资料、页面、导航、友链、翻译和音乐数据表。 |
 | `internal/database/migrations/0005_site_content_revision.sql` | 保存站点内容版本，用于检测并发编辑冲突。 |
 | `internal/database/migrations/0006_personal_content_revision.sql` | 保存足迹与实习经历各自的版本号，用于检测并发编辑冲突。 |
+| `internal/database/migrations/0007_unified_categories.sql` | 将分类映射与首页精选分类合并到统一分类表，并迁移分类翻译。 |
 | `internal/httpserver/auth_routes_test.go` | 验证后台路由在未登录时拒绝访问。 |
 | `internal/httpserver/router.go` | 注册健康检查、公开内容、管理员和上传文件路由。 |
 | `internal/httpserver/router_test.go` | 验证健康检查、未知路由和代理来源识别。 |

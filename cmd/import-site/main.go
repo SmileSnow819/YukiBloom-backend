@@ -86,7 +86,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, output 
 		}
 		validated[value] = struct{}{}
 	}
-	if _, err := fmt.Fprintf(output, "站点内容预检查完成：%d 个社交链接、%d 个精选分类、%d 个精选系列、%d 组歌单、%d 条内容翻译、%d 个独立页面、%d 张本地图片，未发现格式问题。\n", len(content.SocialLinks), len(content.FeaturedCategories), len(content.FeaturedSeries), len(content.MusicGroups), len(content.Translations), len(pages), len(validated)); err != nil {
+	if _, err := fmt.Fprintf(output, "站点内容预检查完成：%d 个社交链接、%d 个分类（%d 个在首页展示）、%d 个精选系列、%d 组歌单、%d 条内容翻译、%d 个独立页面、%d 张本地图片，未发现格式问题。\n", len(content.SocialLinks), len(content.Categories), countHomeCategories(content.Categories), len(content.FeaturedSeries), len(content.MusicGroups), len(content.Translations), len(pages), len(validated)); err != nil {
 		return err
 	}
 	if !settings.apply {
@@ -168,8 +168,8 @@ func contentAssets(content *sitecontent.Content) []*string {
 	if content.Profile != nil {
 		refs = append(refs, &content.Profile.Avatar, &content.Profile.DefaultOGImage)
 	}
-	for index := range content.FeaturedCategories {
-		refs = append(refs, &content.FeaturedCategories[index].Image)
+	for index := range content.Categories {
+		refs = append(refs, &content.Categories[index].Image)
 	}
 	for index := range content.FeaturedSeries {
 		refs = append(refs, &content.FeaturedSeries[index].Cover)
@@ -178,6 +178,19 @@ func contentAssets(content *sitecontent.Content) []*string {
 		refs = append(refs, &content.FriendLinks[index].Image)
 	}
 	return refs
+}
+
+// 统计需要显示在首页的分类数量。
+// 参数：categories 是待统计的分类列表。
+// 返回：int 是启用首页展示的分类数量。
+func countHomeCategories(categories []sitecontent.Category) int {
+	count := 0
+	for _, category := range categories {
+		if category.ShowOnHome {
+			count++
+		}
+	}
+	return count
 }
 
 // localAsset 将旧站点内的图片 URL 转换为安全的本地文件路径。
